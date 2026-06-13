@@ -1,0 +1,13 @@
+.venv/
+.vscode/
+__pycache__/
+
+*.pyc
+
+reports/output/*.pdf
+
+assets/screenshots/*.png
+
+structure.txt
+
+*.pkl
