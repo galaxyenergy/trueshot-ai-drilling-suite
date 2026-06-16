@@ -199,7 +199,7 @@ st.info(
 try:
 
     importance_df = pd.read_csv(
-        "models/rop_feature_importance.csv"
+        "models/mwd/rop_feature_importance.csv"
     )
 
     st.subheader(

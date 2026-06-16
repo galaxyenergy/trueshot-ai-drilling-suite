@@ -8,15 +8,22 @@ df = pd.read_csv("data/mwd/mwd_degradation_timeseries_v4.csv")
 
 # Predict failures 60 minutes into the future
 
+df["failure_60min"] = (
+    df["failure"]
+    .shift(-60)
+)
+
+df = df.dropna()
 
 X = df.drop(
     columns=[
         "timestamp",
-        "failure"
+        "failure",
+        "failure_60min"
     ]
 )
 
-y = df["failure"]
+y = df["failure_60min"]
 
 X_train, X_test, y_train, y_test = train_test_split(
     X,

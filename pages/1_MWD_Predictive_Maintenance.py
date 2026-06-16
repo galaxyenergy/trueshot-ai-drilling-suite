@@ -6,12 +6,16 @@ importance_df = pd.read_csv(
     "models/mwd/feature_importance.csv"
 )
 
-st.set_page_config(page_title="MWD Tool Health Dashboard")
+st.set_page_config(
+    page_title="MWD Predictive Maintenance",
+    page_icon="🔧",
+    layout="wide"
+)
 
-st.title("TrueShot AI Tool Reliability Monitor")
+st.title("🔧 MWD Predictive Maintenance")
 
 st.caption(
-    "Predictive Maintenance and Tool Health Analytics"
+    "AI-powered tool health monitoring and failure prediction"
 )
 
 model = joblib.load("models/mwd/mwd_rf.pkl")
@@ -115,7 +119,7 @@ st.dataframe(
 
 # Add this directly below
 
-chart_df = importance_df.head(5).copy()
+chart_df = importance_df.head(4).copy()
 
 chart_df["feature_display"] = (
     chart_df["feature"]
