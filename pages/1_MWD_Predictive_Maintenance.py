@@ -2,21 +2,27 @@ import streamlit as st
 import pandas as pd
 import joblib
 
-importance_df = pd.read_csv(
-    "models/mwd/feature_importance.csv"
-)
-
 st.set_page_config(
     page_title="MWD Predictive Maintenance",
     page_icon="🔧",
     layout="wide"
 )
 
-st.title("🔧 MWD Predictive Maintenance")
+if "mwd_df" not in st.session_state:
+    st.warning("Please upload MWD CSV in Data Manager.")
+    st.stop()
+
+df = st.session_state["mwd_df"]
+
+importance_df = pd.read_csv(
+    "models/mwd/feature_importance.csv"
+)
+
 
 st.caption(
     "AI-powered tool health monitoring and failure prediction"
 )
+
 
 model = joblib.load("models/mwd/mwd_rf.pkl")
 

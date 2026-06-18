@@ -4,21 +4,23 @@ import plotly.express as px
 import numpy as np
 
 st.set_page_config(
-    page_title="TrueShot AI - ROP Optimization",
+    page_title="ROP Optimization",
     page_icon="⚡",
     layout="wide"
 )
+
+if "mwd_df" not in st.session_state:
+    st.warning("Please upload MWD CSV in Data Manager.")
+    st.stop()
+
+df = st.session_state["mwd_df"]
 
 st.title("⚡ ROP Optimization")
 st.caption("Rate of Penetration analytics and drilling performance monitoring")
 
 depth = np.arange(0, 20000, 100)
 
-rop = (
-    120
-    + 20*np.sin(depth/1500)
-    + np.random.normal(0,5,len(depth))
-)
+rop = df["ROP"]
 
 df = pd.DataFrame({
     "depth": depth,

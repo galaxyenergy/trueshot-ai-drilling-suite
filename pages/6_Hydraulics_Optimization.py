@@ -9,25 +9,24 @@ st.caption(
     "Real-time hydraulics monitoring for drilling efficiency and hole cleaning"
 )
 
+
+if "hydraulics_df" not in st.session_state:
+    st.warning("Please upload Hydraulics CSV in Data Manager.")
+    st.stop()
+
+df = st.session_state["hydraulics_df"]
+
+
+
+
 depth = np.arange(0, 20001, 100)
 
-ecd = (
-    10
-    + depth * 0.00008
-    + np.random.normal(0, 0.08, len(depth))
-)
+ecd = df["ECD"]
+spp = df["SPP"]
 
-spp = (
-    1800
-    + depth * 0.12
-    + np.random.normal(0, 40, len(depth))
-)
-
-hhp = (
-    350
-    + depth * 0.01
-    + np.random.normal(0, 10, len(depth))
-)
+hp = (
+    spp * df["FLOWRATE"]
+) / 1714
 
 col1,col2,col3,col4,col5 = st.columns(5)
 

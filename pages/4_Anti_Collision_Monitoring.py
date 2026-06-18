@@ -15,6 +15,11 @@ st.caption(
     "Real-time offset well proximity and collision risk monitoring"
 )
 
+if "survey_df" not in st.session_state:
+    st.warning("Please upload Survey CSV in Data Manager.")
+    st.stop()
+
+df = st.session_state["survey_df"]
 
 depth = np.arange(0, 20001, 100)
 

@@ -14,8 +14,11 @@ st.title("🧭 Directional Drilling Analytics")
 st.caption(
     "Wellbore trajectory monitoring and directional performance analytics"
 )
+if "survey_df" not in st.session_state:
+    st.warning("Please upload a Survey CSV in Data Manager.")
+    st.stop()
 
-df = pd.read_csv("data/mwd/Sample_MWD_Survey.csv")
+df = st.session_state["survey_df"]
 
 #st.write(df.head())
 #st.write(df.columns)

@@ -19,21 +19,20 @@ st.caption(
 # SAMPLE DATA
 # --------------------------------------------------
 
+if "torque_df" not in st.session_state:
+    st.warning("Please upload Torque CSV in Data Manager.")
+    st.stop()
+
+df = st.session_state["torque_df"]
+
+
+
 depth = np.arange(0, 20001, 100)
 
-hookload = (
-    150
-    + 0.004 * depth
-    + np.random.normal(0, 5, len(depth))
-)
+hookload = df["HOOKLOAD"]
+torque = df["TORQUE"]
 
-torque = (
-    2000
-    + 0.12 * depth
-    + np.random.normal(0, 120, len(depth))
-)
-
-drag = hookload * 0.08 + np.random.normal(0, 1, len(depth))
+drag = hookload * 0.08
 
 df = pd.DataFrame({
     "depth": depth,
