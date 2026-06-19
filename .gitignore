@@ -11,3 +11,6 @@ assets/screenshots/*.png
 structure.txt
 
 *.pkl
+*.tar
+*.zip
+*.7z
