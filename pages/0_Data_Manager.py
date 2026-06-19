@@ -44,7 +44,7 @@ st.caption("Upload well data files for all analytics modules")
 # SURVEY DATA
 # --------------------------------------------------
 survey_file = st.file_uploader(
-    "Upload Survey CSV",
+    "Upload Directional Survey",
     type=["csv"],
     key="survey"
 )
@@ -72,7 +72,7 @@ if survey_file:
 # --------------------------------------------------
 
 mwd_file = st.file_uploader(
-    "Upload MWD CSV",
+    "Upload MWD Data",
     type=["csv"],
     key="mwd"
 )
@@ -93,12 +93,66 @@ if mwd_file:
     st.write("Missing Values Before:", result["missing_before"])
     st.write("Missing Values After:", result["missing_after"])
 
+
+# --------------------------------------------------
+# ROP DATA
+# --------------------------------------------------
+
+rop_file = st.file_uploader(
+    "Upload Drilling Performance Data",
+    type=["csv"],
+    key="rop"
+)
+
+if rop_file:
+
+    raw_df = pd.read_csv(rop_file)
+
+    result = clean_dataset(raw_df)
+
+    st.session_state["rop_df"] = result["df"]
+
+    st.success(
+        f"ROP loaded: {len(result['df'])} rows"
+    )
+
+    st.write("Duplicates Removed:", result["duplicates"])
+    st.write("Missing Values Before:", result["missing_before"])
+    st.write("Missing Values After:", result["missing_after"])
+    
+ 
+# --------------------------------------------------
+# COLLISION DATA
+# --------------------------------------------------
+
+collision_file = st.file_uploader(
+    "Upload Anti-Collision Data",
+    type=["csv"],
+    key="collision"
+)
+
+if collision_file:
+
+    raw_df = pd.read_csv(collision_file)
+
+    result = clean_dataset(raw_df)
+
+    st.session_state["collision_df"] = result["df"]
+
+    st.success(
+        f"Collision loaded: {len(result['df'])} rows"
+    )
+
+    st.write("Duplicates Removed:", result["duplicates"])
+    st.write("Missing Values Before:", result["missing_before"])
+    st.write("Missing Values After:", result["missing_after"])
+
 # --------------------------------------------------
 # TORQUE / DRAG DATA
 # --------------------------------------------------
 
 torque_file = st.file_uploader(
-    "Upload Torque & Drag CSV",
+    "Upload Torque & Drag Data",
     type=["csv"],
     key="torque"
 )
@@ -124,7 +178,7 @@ if torque_file:
 # --------------------------------------------------
 
 hyd_file = st.file_uploader(
-    "Upload Hydraulics CSV",
+    "Upload Hydraulics Data",
     type=["csv"],
     key="hydraulics"
 )
@@ -157,6 +211,8 @@ st.write(
     {
         "Survey": "✅" if "survey_df" in st.session_state else "❌",
         "MWD": "✅" if "mwd_df" in st.session_state else "❌",
+        "ROP": "✅" if "rop_df" in st.session_state else "❌",
+        "Collision": "✅" if "collision_df" in st.session_state else "❌",
         "Torque": "✅" if "torque_df" in st.session_state else "❌",
         "Hydraulics": "✅" if "hydraulics_df" in st.session_state else "❌",
     }
