@@ -62,12 +62,39 @@ with c3:
     
 st.subheader("AI Daily Summary")
 
-avg_rop = 82
-max_torque = 4452
-current_spp = 4207
-current_ecd = 11.53
-mwd_health = 92
-collision_alerts = 0
+avg_rop = (
+    st.session_state["rop_df"]["ROP"].mean()
+    if "rop_df" in st.session_state
+    else 0
+)
+
+max_torque = (
+    st.session_state["torque_df"]["Torque"].max()
+    if "torque_df" in st.session_state
+    else 0
+)
+
+current_spp = (
+    st.session_state["hydraulics_df"]["SPP"].iloc[-1]
+    if "hydraulics_df" in st.session_state
+    else 0
+)
+
+current_ecd = (
+    st.session_state["hydraulics_df"]["ECD"].iloc[-1]
+    if "hydraulics_df" in st.session_state
+    else 0
+)
+
+collision_alerts = (
+    (
+        st.session_state["collision_df"]["Distance"] < 25
+    ).sum()
+    if "collision_df" in st.session_state
+    else 0
+)
+
+mwd_health = 100
 
 
 if avg_rop >= 80:
@@ -132,11 +159,61 @@ report_type = st.selectbox(
     "Select Report",
     [
         "MWD Daily Report",
-        "Directional Daily Report",
+        "MWD Failure Analysis",
+        "Directional Performance Report",
         "Executive Summary",
-        "Operations Summary"
+        "End Of Well Report",
+        "Well Completion Package"
     ]
 )
+
+# PASTE HERE
+if report_type == "MWD Failure Analysis":
+
+    if "mwd_df" in st.session_state:
+
+        df = st.session_state["mwd_df"]
+
+        failure_count = df["Failure_Flag"].sum()
+
+        avg_shock = df["Shock"].mean()
+
+        avg_vibration = df["Vibration"].mean()
+
+        avg_temp = df["Temp"].mean()
+
+        failure_report = f"""
+MWD FAILURE ANALYSIS
+
+Total Failures: {failure_count}
+
+Average Shock: {avg_shock:.1f}
+
+Average Vibration: {avg_vibration:.1f}
+
+Average Temperature: {avg_temp:.1f}
+
+ROOT CAUSE ANALYSIS
+
+Potential Drivers:
+
+• Shock
+• Vibration
+• Temperature
+
+RECOMMENDATION
+
+Monitor tool health closely.
+Reduce vibration exposure.
+Inspect pulser and battery systems.
+"""
+
+        st.text_area(
+            "Failure Analysis",
+            failure_report,
+            height=400
+        )
+
 
 if st.button("Generate PDF"):
 
