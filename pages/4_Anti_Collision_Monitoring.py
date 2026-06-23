@@ -15,32 +15,21 @@ st.caption(
     "Real-time offset well proximity and collision risk monitoring"
 )
 
-if "survey_df" not in st.session_state:
+if "collision_df" not in st.session_state:
     st.warning("Please upload Survey CSV in Data Manager.")
     st.stop()
 
-df = st.session_state["survey_df"]
+df = st.session_state["collision_df"]
 
-depth = np.arange(0, 20001, 100)
+#st.subheader("Collision Columns")
+#st.write(df.columns.tolist())
 
-distance = (
-    60
-    - 0.002 * depth
-    + np.random.normal(0, 2, len(depth))
-)
+#st.stop()
 
-distance = np.clip(distance, 15, None)
+min_sep = df["Distance"].min()
+current_sep = df["Distance"].iloc[-1]
 
-df = pd.DataFrame({
-    "depth": depth,
-    "distance": distance
-})
-
-
-min_sep = df["distance"].min()
-current_sep = df["distance"].iloc[-1]
-
-high_risk_points = (df["distance"] < 25).sum()
+high_risk_points = (df["Distance"] < 25).sum()
 
 risk_level = (
     "HIGH"
@@ -50,10 +39,9 @@ risk_level = (
     else "LOW"
 )
 
-
 closest_depth = df.loc[
-    df["distance"].idxmin(),
-    "depth"
+    df["Distance"].idxmin(),
+    "Depth"
 ]
 
 col1, col2, col3, col4, col5 = st.columns(5)
@@ -61,13 +49,13 @@ col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
     st.metric(
         "Minimum Separation",
-        f"{df['distance'].min():.1f} ft"
+        f"{df['Distance'].min():.1f} ft"
     )
 
 with col2:
     st.metric(
         "Current Separation",
-        f"{df['distance'].iloc[-1]:.1f} ft"
+        f"{df['Distance'].iloc[-1]:.1f} ft"
     )
 
 with col3:
@@ -93,8 +81,8 @@ st.subheader("Separation Distance vs Depth")
 
 fig_sep = px.line(
     df,
-    x="depth",
-    y="distance",
+    x="Depth",
+    y="Distance",
     title="Offset Well Separation"
 )
 
@@ -104,7 +92,6 @@ fig_sep.add_hline(
     line_color="red",
     annotation_text="Collision Threshold"
 )
-
 
 st.plotly_chart(
     fig_sep,
@@ -117,8 +104,6 @@ fig_sep.add_hline(
     line_color="red",
     annotation_text="Collision Threshold"
 )
-
-
 
 st.subheader("Collision Risk Assessment")
 if min_sep > 50:
@@ -134,8 +119,7 @@ elif min_sep > 25:
 else:
     st.error(
         "🔴 Collision risk exceeds company threshold"
-    )
-    
+    ) 
     
     offset_df = pd.DataFrame({
     "Offset Well":[
@@ -146,7 +130,6 @@ else:
     "Distance (ft)":[65,42,18],
     "Risk":["Low","Medium","High"]
 })
-
 
 st.subheader("AI Insights")
 if min_sep < 25:
@@ -167,19 +150,6 @@ else:
         "✅ Offset well separation remains within acceptable limits."
     )
     
-
-
-
-
-
-
-
-
-
-
-
-
-
 def color_risk(val):
     if val == "Low":
         return "background-color: lightgreen"

@@ -20,12 +20,17 @@ if "survey_df" not in st.session_state:
 
 df = st.session_state["survey_df"]
 
-#st.write(df.head())
-#st.write(df.columns)
+#st.write(df.columns.tolist())
+#st.stop()
 
-depth = df["MD_ft"].values
-inclination = df["INC_deg"].values
-azimuth = df["AZI_deg"].values
+depth = df["MD"].values
+inclination = df["Inc"].values
+azimuth = df["Azm"].values
+
+tvd = df["TVD"].values
+northing = df["Northing"].values
+easting = df["Easting"].values
+dogleg = df["Dogleg"].values
 
 st.metric(
     "Total Depth",
@@ -45,49 +50,22 @@ st.metric(
 dogleg = [0]
 
 for i in range(1, len(depth)):
+
     dmd = depth[i] - depth[i-1]
 
     dinc = inclination[i] - inclination[i-1]
+
     dazi = azimuth[i] - azimuth[i-1]
 
     dls = np.sqrt(dinc**2 + dazi**2) * 100 / dmd
 
     dogleg.append(dls)
 
-dogleg = np.array(dogleg)
-
-# Calculate TVD, Northing, Easting
-
-tvd = [0]
-northing = [0]
-easting = [0]
-
-for i in range(1, len(depth)):
-
-    dmd = depth[i] - depth[i-1]
-
-    inc_avg = np.radians(
-        (inclination[i] + inclination[i-1]) / 2
-    )
-
-    azi_avg = np.radians(
-        (azimuth[i] + azimuth[i-1]) / 2
-    )
-
-    dtvd = dmd * np.cos(inc_avg)
-
-    dnorth = dmd * np.sin(inc_avg) * np.cos(azi_avg)
-
-    deast = dmd * np.sin(inc_avg) * np.sin(azi_avg)
-
-    tvd.append(tvd[-1] + dtvd)
-    northing.append(northing[-1] + dnorth)
-    easting.append(easting[-1] + deast)
+dogleg = df["Dogleg"].values
 
 tvd = np.array(tvd)
 northing = np.array(northing)
 easting = np.array(easting)
-
 
 df = pd.DataFrame({
     "depth": depth,
@@ -99,7 +77,6 @@ df = pd.DataFrame({
     "easting": easting
 })
 
-
 st.subheader("Inclination Profile")
 
 fig_inc = px.line(
@@ -110,7 +87,6 @@ fig_inc = px.line(
 )
 
 st.plotly_chart(fig_inc, width="stretch")
-
 
 st.subheader("Azimuth Profile")
 
@@ -140,7 +116,6 @@ st.plotly_chart(
     fig_vs,
     width="stretch"
 )
-
 
 import plotly.graph_objects as go
 
@@ -186,10 +161,8 @@ st.plotly_chart(
     use_container_width=True
 )
 
-
 #st.write(df.tail())
 #st.stop()
-
 
 if dogleg.max() < 4:
     st.success("🟢 Well path within directional limits")

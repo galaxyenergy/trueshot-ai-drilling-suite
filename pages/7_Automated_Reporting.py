@@ -3,6 +3,10 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
+from io import BytesIO
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
+
 st.title("📄 Automated Reporting")
 
 st.write(
@@ -29,17 +33,17 @@ st.subheader("Daily KPI Summary")
 
 col1, col2, col3, col4 = st.columns(4)
 
-with col1:
-    st.metric("ROP", "82 ft/hr")
+#with col1:
+    #rop = st.session_state["rop_df"]["ROP"].mean()
 
-with col2:
-    st.metric("Torque", "4452 ft-lbs")
+#with col2:
+    #torque = st.session_state["torque_df"]["Torque"].max()
 
-with col3:
-    st.metric("SPP", "4207 psi")
+#with col3:
+    #spp = st.session_state["hydraulics_df"]["SPP"].iloc[-1]
 
-with col4:
-    st.metric("ECD", "11.53 ppg")
+#with col4:
+    #ecd = st.session_state["hydraulics_df"]["ECD"].iloc[-1]
     
 
 st.subheader("Report Statistics")
@@ -58,22 +62,61 @@ with c3:
     
 st.subheader("AI Daily Summary")
 
+avg_rop = 82
+max_torque = 4452
+current_spp = 4207
+current_ecd = 11.53
+mwd_health = 92
+collision_alerts = 0
+
+
+if avg_rop >= 80:
+    rop_comment = "Average ROP remained within target range."
+else:
+    rop_comment = "Average ROP fell below target range and requires optimization."
+
+
+if max_torque > 4500:
+    torque_comment = "Torque approached operating limits in the lateral section."
+else:
+    torque_comment = "Torque remained within acceptable operating limits."
+
+
+if current_spp > 4000:
+    spp_comment = "Standpipe pressure increased significantly with depth."
+else:
+    spp_comment = "Standpipe pressure remained stable."
+
+
+if current_ecd < 12.5:
+    hydraulics_comment = "Hydraulic performance remained acceptable."
+else:
+    hydraulics_comment = "ECD exceeded recommended limits and requires attention."
+
+
+if collision_alerts == 0:
+    collision_comment = "No anti-collision risks were identified."
+else:
+    collision_comment = f"{collision_alerts} anti-collision alerts were detected."
+
+
 summary = f"""
 Well: {well_name}
 
-The drilling operation continued successfully.
+Daily Drilling Summary
 
-Average ROP remained within target range.
+{rop_comment}
 
-Torque approached operating limits in the lateral section.
+{torque_comment}
 
-Standpipe pressure increased steadily with depth.
+{spp_comment}
 
-Hydraulic performance remained acceptable.
+{hydraulics_comment}
 
-No anti-collision risks were identified.
+{collision_comment}
 
 Recommended Action:
+
 Monitor torque and drag trends while maintaining current hydraulics program.
 """
 
@@ -82,7 +125,6 @@ st.text_area(
     summary,
     height=350
 )
-
  
 st.subheader("Available Reports")
 
@@ -96,10 +138,35 @@ report_type = st.selectbox(
     ]
 )
 
-if st.button("Download PDF"):
+if st.button("Generate PDF"):
 
-    st.success(
-        f"{report_type} generated successfully."
+    pdf_buffer = BytesIO()
+
+    doc = SimpleDocTemplate(pdf_buffer)
+
+    styles = getSampleStyleSheet()
+
+    story = []
+
+    story.append(
+        Paragraph(report_type, styles["Title"])
+    )
+
+    story.append(Spacer(1,12))
+
+    story.append(
+        Paragraph(summary, styles["BodyText"])
+    )
+
+    doc.build(story)
+
+    pdf_buffer.seek(0)
+
+    st.download_button(
+        label="Download Report",
+        data=pdf_buffer,
+        file_name=f"{report_type}.pdf",
+        mime="application/pdf"
     )
     
        

@@ -13,12 +13,18 @@ if "mwd_df" not in st.session_state:
     st.warning("Please upload MWD CSV in Data Manager.")
     st.stop()
 
-df = st.session_state["mwd_df"]
-
 st.title("⚡ ROP Optimization")
 st.caption("Rate of Penetration analytics and drilling performance monitoring")
 
-depth = np.arange(0, 20000, 100)
+
+df = st.session_state["rop_df"]
+
+#st.write(df.columns.tolist())
+#st.write(df.shape)
+
+#depth = np.arange(0, 20000, 100)
+
+depth = df["Depth"]
 
 rop = df["ROP"]
 
@@ -72,9 +78,7 @@ st.plotly_chart(
     width="stretch"
 )
 
-  
-df["rop_avg"] = df["rop"].rolling(10).mean()
-
+#df["rop_avg"] = df["rop"].rolling(10).mean()
 
 fig_avg = px.line(
     df,

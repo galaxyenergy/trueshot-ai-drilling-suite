@@ -9,44 +9,45 @@ st.caption(
     "Real-time hydraulics monitoring for drilling efficiency and hole cleaning"
 )
 
-
 if "hydraulics_df" not in st.session_state:
     st.warning("Please upload Hydraulics CSV in Data Manager.")
     st.stop()
 
 df = st.session_state["hydraulics_df"]
 
+#st.write(df.columns.tolist())
+#st.stop()
 
+#depth = np.arange(0, 20001, 100)
 
-
-depth = np.arange(0, 20001, 100)
-
-ecd = df["ECD"]
+depth = df["Depth"]
+flowrate = df["FlowRate"]
 spp = df["SPP"]
+ecd = df["ECD"]
+mudweight = df["MudWeight"]
+annular_velocity = df["AnnularVelocity"]
 
-hp = (
-    spp * df["FLOWRATE"]
-) / 1714
+hp = (spp * flowrate) / 1714
 
 col1,col2,col3,col4,col5 = st.columns(5)
 
 col1.metric(
-    "Current ECD",
-    f"{ecd[-1]:.2f} ppg"
+    "Current ECD_ppg",
+    f"{ecd.iloc[-1]:.2f} ppg"
 )
 
 col2.metric(
-    "Current SPP",
-    f"{spp[-1]:.0f} psi"
+    "Current SPP_psi",
+    f"{spp.iloc[-1]:.0f} psi"
 )
 
 col3.metric(
-    "Hydraulic HP",
-    f"{hhp[-1]:.0f}"
+    "Hydraulic_HP",
+    f"{hp.iloc[-1]:.0f}"
 )
 
 col4.metric(
-    "Max ECD",
+    "Max ECD_ppg",
     f"{ecd.max():.2f}"
 )
 
@@ -75,14 +76,12 @@ hp = (
     + np.random.normal(0, 10, len(depth))
 )
 
-
 df = pd.DataFrame({
     "depth": depth,
     "ecd": ecd,
     "spp": spp,
     "hp": hp
 })
-
 
 fig_ecd = px.line(
     df,
@@ -122,9 +121,8 @@ fig_spp.add_hline(
     y=4000,
     line_dash="dash",
     line_color="orange",
-    annotation_text="SPP Limit"
+    annotation_text="SPP_psi Limit"
 )
-
 
 st.plotly_chart(
     fig_spp,
@@ -141,7 +139,6 @@ fig_hp = px.line(
         "hp": "Hydraulic Horsepower"
     }
 )
-
 
 st.plotly_chart(
     fig_hp,
@@ -176,13 +173,12 @@ zone_table = (
 
 zone_table.columns = [
     "Zone",
-    "Average ECD"
+    "Average ECD_ppg"
 ]
 
 st.subheader(
     "Formation Hydraulics Analysis"
 )
-
 
 st.dataframe(
     zone_table,
@@ -197,9 +193,7 @@ if hole_cleaning > 90:
     st.success("Hole cleaning efficiency remains acceptable.")
 else:
     st.warning("Hole cleaning efficiency deteriorating.")
-    
-    
-
+   
 if ecd.max() > 11.5:
     st.error(
         "🚨 ECD approaching fracture gradient in lateral section."

@@ -25,12 +25,17 @@ if "torque_df" not in st.session_state:
 
 df = st.session_state["torque_df"]
 
-
+#st.write(df.columns.tolist())
 
 depth = np.arange(0, 20001, 100)
 
-hookload = df["HOOKLOAD"]
-torque = df["TORQUE"]
+depth = df["Depth"]
+hookload = df["Hookload"]
+torque = df["Torque"]
+#st.write(df.columns.tolist())
+
+#hookload = df.iloc[:,1]
+#torque = df.iloc[:,2]
 
 drag = hookload * 0.08
 
@@ -45,18 +50,18 @@ df = pd.DataFrame({
 # KPIs
 # --------------------------------------------------
 
-col1, col2, col3, col4, col5 = st.columns([1.3,1.3,1.3,1,1])
+col1, col2, col3, col4, col5 = st.columns([2,2,2,2,1])
 
 with col1:
     st.metric(
         "Current Hookload",
-        f"{hookload[-1]:.1f} klbs"
+        f"{hookload.iloc[-1]:.1f} klbs"
     )
 
 with col2:
     st.metric(
         "Current Torque",
-        f"{torque[-1]:,.0f} ft-lbs"
+        f"{torque.iloc[-1]:,.0f} ft-lbs"
     )
 
 with col3:
@@ -68,7 +73,7 @@ with col3:
 with col4:
     st.metric(
         "Drag Index",
-        f"{drag[-1]:.1f}"
+        f"{drag.iloc[-1]:.1f}"
     )
 
 with col5:
@@ -236,7 +241,7 @@ st.info(
     "ℹ️ Lateral section exhibits highest mechanical loading."
 )
 
-if drag[-1] > drag.mean() * 1.2:
+if drag.iloc[-1] > drag.mean() * 1.2:
     st.warning(
         "⚠️ Drag trend increasing. Review wellbore friction conditions."
     )
