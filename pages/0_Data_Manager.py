@@ -29,8 +29,6 @@ def clean_dataset(df):
         "missing_after": missing_after
     }
 
-
-
 st.set_page_config(
     page_title="Data Manager",
     page_icon="📂",
@@ -65,8 +63,6 @@ if survey_file:
     st.write("Missing Values Before:", result["missing_before"])
     st.write("Missing Values After:", result["missing_after"])
 
-
-
 # --------------------------------------------------
 # MWD DATA
 # --------------------------------------------------
@@ -92,7 +88,6 @@ if mwd_file:
     st.write("Duplicates Removed:", result["duplicates"])
     st.write("Missing Values Before:", result["missing_before"])
     st.write("Missing Values After:", result["missing_after"])
-
 
 # --------------------------------------------------
 # ROP DATA
@@ -120,8 +115,7 @@ if rop_file:
     st.write("Missing Values Before:", result["missing_before"])
     st.write("Missing Values After:", result["missing_after"])
     
- 
-# --------------------------------------------------
+ # --------------------------------------------------
 # COLLISION DATA
 # --------------------------------------------------
 

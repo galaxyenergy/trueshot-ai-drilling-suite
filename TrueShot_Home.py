@@ -1,10 +1,22 @@
 import streamlit as st
 
+from login import login_screen
+
+st.success("LOGIN MODULE IMPORTED")
+
 st.set_page_config(
-    page_title="TrueShot AI Drilling Intelligence Suite",
+    page_title="Galaxy AI Drilling Intelligence Suite Powered by TRUEshot Data",
     page_icon="🚀",
     layout="wide"
 )
+
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+
+if not st.session_state["authenticated"]:
+    login_screen()
+    st.stop()
+    
 
 # Executive Dashboard KPIs
 col1, col2, col3, col4 = st.columns(4)
@@ -77,3 +89,10 @@ st.divider()
 st.caption(
     "Galaxy AI Drilling Operations Platform | TRUEshot LLC Demonstration | Tony Lawal 2026"
 )
+
+st.sidebar.divider()
+
+if st.sidebar.button("Logout"):
+
+    st.session_state["authenticated"] = False
+    st.rerun()
