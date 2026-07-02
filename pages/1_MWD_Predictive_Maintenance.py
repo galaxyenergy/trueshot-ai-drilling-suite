@@ -15,7 +15,14 @@ if "mwd_df" not in st.session_state:
     st.warning("Please upload MWD CSV in Data Manager.")
     st.stop()
 
-df = st.session_state["mwd_df"]
+from utils.datasource import get_current_data
+
+df = get_current_data()
+
+if df is None:
+    st.warning("No drilling data available.")
+    st.stop()
+    
 #st.write(df.columns.tolist())
 #st.stop()
 

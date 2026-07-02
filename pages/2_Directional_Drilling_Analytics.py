@@ -18,7 +18,13 @@ if "survey_df" not in st.session_state:
     st.warning("Please upload a Survey CSV in Data Manager.")
     st.stop()
 
-df = st.session_state["survey_df"]
+from utils.datasource import get_survey_data
+
+df = get_survey_data()
+
+if df is None:
+    st.warning("Please upload a Survey CSV in the Data Manager.")
+    st.stop()
 
 #st.write(df.columns.tolist())
 #st.stop()
