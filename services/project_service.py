@@ -39,20 +39,7 @@ class ProjectService:
         )
 
         return project
-        project = Project(
-            project_id=project_id,
-            operator=operator,
-            rig=rig,
-            well=well,
-            field=field,
-            county=county,
-            state=state,
-            country=country
-            created_at=create_at
-            updated_at=updated_at
-            status=status
-            )
-
+       
         metadata = {
             "project_id": project.project_id,
             "operator": project.operator,

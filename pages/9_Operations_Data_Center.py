@@ -1,6 +1,10 @@
 import streamlit as st
-
+import pandas as pd
 from core.session_manager import SessionManager
+from services.import_service import ImportService
+from core.approved_dataset import ApprovedDataset
+
+
 
 
 st.set_page_config(
@@ -11,7 +15,7 @@ st.set_page_config(
 
 context = SessionManager.get_context()
 
-st.title("🌐 Operations Data Center")
+st.title("🌐 TrueShot Operations Data Center")
 st.caption("Enterprise Data Integration & Well Management")
 
 st.divider()
@@ -34,6 +38,17 @@ with col1:
             "Oxy",
             "ConocoPhillips",
             "Diamondback",
+            "Conoco",
+            "Ineos",
+            "Cotera",
+            "POP",
+            "Pinnergy",
+            "Diamondback",
+            "Devon",
+            "Double Eagle",
+            "Shell",
+            "EOG",
+            "Apache",
             "Other"
         ]
     )
@@ -42,7 +57,17 @@ with col2:
     rig = st.selectbox(
         "Rig",
         [
-            "Select Rig"
+            "Select Rig",
+            "HP 537",
+            "Primo 5",
+            "Primo 7",
+            "Primo 9",
+            "Lasso 102",
+            "Pinnergy 1",
+            "Pinnergy 6",
+            "Pinnergy 10",
+            "Cactus 161",
+            "X-23",
         ]
     )
 
@@ -50,7 +75,9 @@ with col3:
     well = st.selectbox(
         "Well",
         [
-            "Select Well"
+            "Select Well",
+            "Schwope LAS B 2H",
+            "Other",
         ]
     )
 
@@ -111,11 +138,14 @@ source = st.selectbox(
         "Excel",
         "ASCII",
         "LAS",
-        "WITSML"
+        "WITSML",
+        
     ]
 )
 
 st.divider()
+
+
 
 # =====================================================
 # IMPORT
@@ -128,31 +158,101 @@ left, right = st.columns(2)
 with left:
 
     uploaded = st.file_uploader(
-        "Browse Export",
-        type=[
-            "csv",
-            "xlsx",
-            "txt",
-            "las",
-            "xml"
-        ]
-    )
+    "Browse Export",
+    type=[
+        "csv",
+        "xlsx",
+        "xls",
+        "txt",
+        "las",
+        "xml"
+    ],
+    key="uploaded_file"
+)
 
 with right:
 
     st.write("")
 
-    st.write("")
+import_btn = st.button(
+    "Import Well Export",
+    use_container_width=True
+)
 
-    import_btn = st.button(
-        "Import Well Export",
-        use_container_width=True
-    )
+if import_btn:
 
-    analyze_btn = st.button(
-        "Analyze Imported Data",
-        use_container_width=True
-    )
+    if uploaded is None:
+
+        st.warning("Please select a WellData export.")
+
+    else:
+
+        with st.spinner("Importing shift export..."):
+
+            dataset = ImportService.import_file(uploaded)
+
+            st.session_state["current_dataset"] = dataset
+
+        st.success("Shift export imported successfully.")
+
+
+
+analyze_btn = st.button(
+    "Analyze Imported Data",
+    use_container_width=True
+)
+
+    # ======================================================
+# ANALYZE IMPORTED DATA
+# ======================================================
+
+if analyze_btn:
+
+    if "current_dataset" not in st.session_state:
+
+        st.warning("Please import a WellData export first.")
+
+    else:
+
+        dataset: ApprovedDataset = st.session_state["current_dataset"]
+
+        report = dataset.validation_report
+
+
+
+        st.divider()
+
+         
+
+        st.subheader("📋 Import Summary")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.write(f"**File Name:** {dataset.file_name}")
+            st.write(f"**Rows:** {len(dataset.raw_dataframe):,}")
+
+        with col2:
+            st.write(f"**Columns:** {len(dataset.raw_dataframe.columns)}")
+            st.write(f"**Imported:** {dataset.import_time.strftime('%Y-%m-%d %H:%M:%S')}")
+
+        st.divider()
+
+        st.subheader("📊 Validation Summary")
+
+        st.json(report)
+
+        st.divider()
+
+        st.subheader("🔍 Data Preview")
+
+        st.dataframe(
+            dataset.raw_dataframe.head(20),
+            use_container_width=True
+        )
+
+
+
 
 st.divider()
 
