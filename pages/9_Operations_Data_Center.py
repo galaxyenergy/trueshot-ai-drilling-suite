@@ -3,8 +3,7 @@ import pandas as pd
 from core.session_manager import SessionManager
 from services.import_service import ImportService
 from core.approved_dataset import ApprovedDataset
-
-
+from utils.datasource import normalize_welldata_export
 
 
 st.set_page_config(
@@ -192,7 +191,26 @@ if import_btn:
             dataset = ImportService.import_file(uploaded)
 
             st.session_state["current_dataset"] = dataset
+           
+            # Temporary demo bridge: feed existing modules from Operations Data Center
+            standard_df = normalize_welldata_export(dataset.raw_dataframe)
+            
+            st.session_state["standard_df"] = standard_df
 
+            # Existing module keys
+            st.session_state["mwd_df"] = standard_df
+            st.session_state["survey_df"] = standard_df
+            st.session_state["rop_df"] = standard_df
+            st.session_state["hydraulics_df"] = standard_df
+            st.session_state["torque_df"] = standard_df
+
+            # Extra safety keys for old pages
+            st.session_state["directional_df"] = standard_df
+            st.session_state["anti_collision_df"] = standard_df
+            st.session_state["collision_df"] = standard_df
+            st.session_state["report_df"] = standard_df
+                        
+                            
         st.success("Shift export imported successfully.")
 
 
@@ -207,7 +225,9 @@ analyze_btn = st.button(
 # ======================================================
 
 if analyze_btn:
-
+    
+    #st.error("ENTERED ANALYZE BUTTON")
+    
     if "current_dataset" not in st.session_state:
 
         st.warning("Please import a WellData export first.")
@@ -215,17 +235,26 @@ if analyze_btn:
     else:
 
         dataset: ApprovedDataset = st.session_state["current_dataset"]
+        
+        #st.success("DATASET LOADED")
 
         report = dataset.validation_report
 
+        #st.success("REPORT LOADED")
 
+# ==================================================
+# SHIFT EXECUTIVE DASHBOARD
+# ==================================================
+
+               
 
         st.divider()
 
          
-
         st.subheader("📋 Import Summary")
 
+        #st.success("ABOUT TO DISPLAY SUMMARY")
+        
         col1, col2 = st.columns(2)
 
         with col1:
@@ -244,6 +273,9 @@ if analyze_btn:
 
         st.divider()
 
+
+
+
         st.subheader("🔍 Data Preview")
 
         st.dataframe(
@@ -251,10 +283,15 @@ if analyze_btn:
             use_container_width=True
         )
 
+        st.divider()
 
 
+        st.subheader("📋 Available WellData Channels")
 
-st.divider()
+        st.write(list(dataset.raw_dataframe.columns))
+
+
+        st.divider()
 
 # =====================================================
 # HISTORY

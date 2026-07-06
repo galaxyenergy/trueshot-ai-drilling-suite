@@ -2,12 +2,16 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import datetime
 
 st.set_page_config(
     page_title="TrueShot AI - Torque & Drag",
     page_icon="🔩",
     layout="wide"
 )
+
+dataset = st.session_state.get("current_dataset")
+
 
 st.title("🔩 Torque & Drag Analytics")
 
@@ -198,7 +202,7 @@ zone_table.columns = [
 zone_table["Average Torque (ft-lbs)"] = (
     zone_table["Average Torque (ft-lbs)"]
     .round(0)
-    .astype(int)
+    .fillna(0).replace([float("inf"), float("-inf")], 0).astype(int)
 )
 
 if zone_table["Average Torque (ft-lbs)"].max() > 3500: 

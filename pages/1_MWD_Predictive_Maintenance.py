@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 #import joblib
 
+
 st.set_page_config(
     page_title="MWD Predictive Maintenance",
     page_icon="🔧",
@@ -12,16 +13,16 @@ st.set_page_config(
 )
 
 if "mwd_df" not in st.session_state:
-    st.warning("Please upload MWD CSV in Data Manager.")
+    st.warning("Please import a WellData export in Operations Data Center.")
     st.stop()
 
-from utils.datasource import get_current_data
+df = st.session_state["mwd_df"]
 
-df = get_current_data()
-
-if df is None:
+if df is None or df.empty:
     st.warning("No drilling data available.")
     st.stop()
+    
+    
     
 #st.write(df.columns.tolist())
 #st.stop()
@@ -331,12 +332,6 @@ st.plotly_chart(
     width="stretch",
     key="Pressure_chart"
 )
-
-if "mwd_df" not in st.session_state:
-    st.warning("Please upload MWD CSV in Data Manager.")
-    st.stop()
-
-df = st.session_state["mwd_df"]
 
 st.subheader("Battery Voltage Trend")
 

@@ -159,10 +159,25 @@ def color_risk(val):
         return "background-color: salmon"
     return ""
 
+
+
+if "Distance" not in df.columns:
+    df["Distance"] = 1500
+
+if "Depth" not in df.columns:
+    df["Depth"] = range(len(df))
+
+offset_df = df[["Depth", "Distance"]].tail(50).copy()
+
+offset_df["Risk"] = offset_df["Distance"].apply(
+    lambda x: "Low" if x >= 1200 else "High"
+)
+
 styled = offset_df.style.map(
     color_risk,
     subset=["Risk"]
 )
+
 
 st.dataframe(
     styled,
