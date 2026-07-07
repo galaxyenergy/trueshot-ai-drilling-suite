@@ -2,12 +2,16 @@ import streamlit as st
 
 from core.session_manager import SessionManager
 from services.import_service import ImportService
+from utils.auth_guard import require_login
+
 
 st.set_page_config(
     page_title="Data Quality Center",
     page_icon="📊",
     layout="wide"
 )
+require_login()
+
 
 context = SessionManager.get_context()
 

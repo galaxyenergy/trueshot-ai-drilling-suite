@@ -342,6 +342,53 @@ def dataset_loaded():
 # LEGACY MODULE ACCESSORS
 # ==================================================
 
+def get_module_data(module_key=None):
+    """
+    Central data access for all pages.
+    Prefer Operations Data Center standardized dataframe.
+    """
+
+    if "standard_df" in st.session_state:
+        df = st.session_state["standard_df"]
+        if df is not None and not df.empty:
+            return df
+
+    if module_key is not None and module_key in st.session_state:
+        df = st.session_state[module_key]
+        if df is not None and not df.empty:
+            return df
+
+    dataset = st.session_state.get("current_dataset")
+
+    if dataset is not None and hasattr(dataset, "raw_dataframe"):
+        standard_df = normalize_welldata_export(dataset.raw_dataframe)
+
+        st.session_state["standard_df"] = standard_df
+        st.session_state["mwd_df"] = standard_df
+        st.session_state["survey_df"] = standard_df
+        st.session_state["rop_df"] = standard_df
+        st.session_state["hydraulics_df"] = standard_df
+        st.session_state["torque_df"] = standard_df
+        st.session_state["torque_drag_df"] = standard_df
+        st.session_state["directional_df"] = standard_df
+        st.session_state["anti_collision_df"] = standard_df
+        st.session_state["collision_df"] = standard_df
+        st.session_state["report_df"] = standard_df
+
+        return standard_df
+
+    return None
+
+
+
+
+
+
+
+
+
+
+
 def get_mwd_data():
     if "standard_df" in st.session_state:
         return st.session_state["standard_df"]
@@ -366,3 +413,4 @@ def get_survey_data():
         return st.session_state.get("survey_df")
 
     return live_data.LIVE_SURVEY_DF
+

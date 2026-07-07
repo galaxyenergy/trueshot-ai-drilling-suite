@@ -2,6 +2,12 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import numpy as np
+from utils.auth_guard import require_login
+from utils.datasource import get_module_data
+from services.shift_analysis_service import build_current_shift_analysis
+from services.survey_export_service import generate_survey_files_from_templates
+
+
 
 st.set_page_config(
     page_title="TrueShot AI - Directional Drilling",
@@ -9,22 +15,24 @@ st.set_page_config(
     layout="wide"
 )
 
+require_login()
+
+
 st.title("🧭 Directional Drilling Analytics")
 
 st.caption(
     "Wellbore trajectory monitoring and directional performance analytics"
 )
-if "survey_df" not in st.session_state:
-    st.warning("Please upload a Survey CSV in Data Manager.")
+
+df = get_module_data("directional_df")
+
+if df is None or df.empty:
+    st.warning("Please import a WellData export in Operations Data Center.")
     st.stop()
 
-from utils.datasource import get_survey_data
+st.session_state["directional_df"] = df
+st.session_state["survey_df"] = df
 
-df = get_survey_data()
-
-if df is None:
-    st.warning("Please upload a Survey CSV in the Data Manager.")
-    st.stop()
 
 #st.write(df.columns.tolist())
 #st.stop()
@@ -63,7 +71,7 @@ for i in range(1, len(depth)):
 
     dazi = azimuth[i] - azimuth[i-1]
 
-    dls = np.sqrt(dinc**2 + dazi**2) * 100 / dmd
+    dls = 0 if dmd == 0 or pd.isna(dmd) else np.sqrt((dinc**2 + dazi**2)) * 100 / dmd
 
     dogleg.append(dls)
 
@@ -162,9 +170,7 @@ fig_plan = px.line(
     title="Well Path Plan View"
 )
 
-st.plotly_chart(
-    fig_plan,
-    use_container_width=True
+st.plotly_chart(fig_inc, width="stretch"
 )
 
 #st.write(df.tail())
@@ -179,3 +185,84 @@ elif dogleg.max() < 6:
 else:
     st.error("🔴 High dogleg severity detected")
     
+
+
+# ==================================================
+# SURVEY EXPORT CENTER
+# ==================================================
+
+st.divider()
+
+st.subheader("Survey Export Center")
+
+st.write(
+    "Generate TrueShot and Oxy survey files from the uploaded TrueShot survey template."
+)
+
+if st.button("Generate TrueShot and Oxy Survey Files"):
+    try:
+        survey_result = generate_survey_files_from_templates()
+
+        survey_df = survey_result["survey_df"]
+        trueshot_file = survey_result["trueshot_file"]
+        oxy_file = survey_result["oxy_file"]
+
+        st.session_state["generated_survey_df"] = survey_df
+        st.session_state["generated_trueshot_file"] = trueshot_file
+        st.session_state["generated_oxy_file"] = oxy_file
+
+        st.success("Survey files generated successfully.")
+
+    except Exception as e:
+        st.error(f"Survey generation failed: {e}")
+
+
+if "generated_survey_df" in st.session_state:
+    st.subheader("Survey Data Preview")
+
+if "generated_survey_df" in st.session_state:
+    st.subheader("Survey Data Preview")
+
+    st.dataframe(
+        st.session_state["generated_survey_df"],
+        width="stretch",
+        hide_index=True
+    )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.download_button(
+            label="Download TRUEshot Survey File",
+            data=st.session_state["generated_trueshot_file"],
+            file_name="generated_trueshot_survey.xlsm",
+            mime="application/vnd.ms-excel.sheet.macroEnabled.12"
+        )
+
+    with col2:
+        st.download_button(
+            label="Download Oxy Survey File",
+            data=st.session_state["generated_oxy_file"],
+            file_name="generated_oxy_survey.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )        
+       
+    
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.download_button(
+            label="Download TrueShot Survey File",
+            data=st.session_state["generated_trueshot_file"],
+            file_name="generated_trueshot_survey.xlsm",
+            mime="application/vnd.ms-excel.sheet.macroEnabled.12"
+        )
+
+    with col2:
+        st.download_button(
+            label="Download Oxy Survey File",
+            data=st.session_state["generated_oxy_file"],
+            file_name="generated_oxy_survey.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )

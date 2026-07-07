@@ -4,13 +4,15 @@ from core.session_manager import SessionManager
 from services.import_service import ImportService
 from core.approved_dataset import ApprovedDataset
 from utils.datasource import normalize_welldata_export
-
+from utils.auth_guard import require_login
 
 st.set_page_config(
     page_title="Operations Data Center",
     page_icon="🌐",
     layout="wide"
 )
+require_login()
+
 
 context = SessionManager.get_context()
 
@@ -191,6 +193,19 @@ if import_btn:
             dataset = ImportService.import_file(uploaded)
 
             st.session_state["current_dataset"] = dataset
+            
+            # Save project metadata for reports
+            dataset.operator = operator
+            dataset.rig = rig
+            dataset.well = well
+            dataset.shift = shift
+
+            st.session_state["operator_name"] = operator
+            st.session_state["rig_name"] = rig
+            st.session_state["well_name"] = well
+            st.session_state["shift_name"] = shift
+            st.session_state["shift_hours"] = 12
+            
            
             # Temporary demo bridge: feed existing modules from Operations Data Center
             standard_df = normalize_welldata_export(dataset.raw_dataframe)

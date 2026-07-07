@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+from utils.auth_guard import require_login
+
+require_login()
 
 def clean_dataset(df):
 

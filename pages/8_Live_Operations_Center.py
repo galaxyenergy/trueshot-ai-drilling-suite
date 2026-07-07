@@ -5,6 +5,10 @@ from utils.live_data import (
     CONNECTION_STATUS,
     LAST_UPDATE
 )
+from utils.auth_guard import require_login
+
+
+require_login()
 
 st.title("📡 Live Operations Center")
 

@@ -4,6 +4,11 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 #import joblib
+from utils.auth_guard import require_login
+
+
+from utils.datasource import get_module_data
+from services.shift_analysis_service import build_current_shift_analysis
 
 
 st.set_page_config(
@@ -12,18 +17,30 @@ st.set_page_config(
     layout="wide"
 )
 
-if "mwd_df" not in st.session_state:
+
+
+df = get_module_data("mwd_df")
+
+if df is None or df.empty:
     st.warning("Please import a WellData export in Operations Data Center.")
     st.stop()
 
-df = st.session_state["mwd_df"]
+st.session_state["mwd_df"] = df
 
-if df is None or df.empty:
-    st.warning("No drilling data available.")
+analysis = build_current_shift_analysis()
+
+if analysis is None:
+    st.warning("Please import a WellData export in Operations Data Center.")
     st.stop()
-    
-    
-    
+
+metrics = analysis["metrics"]
+shift_df = analysis["shift_df"]
+
+
+require_login()
+
+   
+   
 #st.write(df.columns.tolist())
 #st.stop()
 
@@ -67,33 +84,34 @@ st.caption(
 
 #probability = model.predict_proba(input_data)[0][1]
 
-col1, col2, col3 = st.columns([1,1,1])
-
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     st.metric(
-        "Current Depth",
-        f"{current_depth:,.0f} ft"
+        "Footage Drilled",
+        f"{metrics['footage_drilled']:,.1f} ft"
     )
 
 with col2:
     st.metric(
-        "Tool Health",
-        f"{health_score:.1f}%"
+        "Average ROP",
+        f"{metrics['avg_rop']:,.1f} ft/hr"
     )
 
 with col3:
     st.metric(
-        "Failure Risk",
-        f"{failure_probability:.1f}%"
+        "Average Torque",
+        f"{metrics['avg_torque']:,.1f}"
     )
 
 with col4:
     st.metric(
-        "Prediction",
-        prediction
+        "Estimated NPT",
+        f"{metrics['npt_hours']:.1f} hrs"
     )
+
+
+
 
 st.subheader("Live Tool Health Dashboard")
 
@@ -382,3 +400,17 @@ recommendations = generate_ai_recommendations(
 
 for rec in recommendations:
     st.info(rec)
+
+
+
+st.subheader("AI 12-Hour MWD Operational Evaluation")
+
+st.info(
+    "This page is using the standardized WellData export imported through Operations Data Center."
+)
+
+st.text_area(
+    "AI MWD / Operations Recommendation",
+    analysis["report_text"],
+    height=300
+)

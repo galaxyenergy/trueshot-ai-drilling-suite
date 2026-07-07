@@ -1,651 +1,381 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
 from datetime import datetime
-
 from io import BytesIO
+import html
+
+from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
+from utils.auth_guard import require_login
+from services.shift_analysis_service import build_current_shift_analysis
 
-from utils.pdf_generator import generate_pdf
 
-from utils.report_generator import (
-    generate_mwd_daily_report,
-    generate_failure_report,
-    generate_directional_report
+st.set_page_config(
+    page_title="Automated Reporting",
+    page_icon="📄",
+    layout="wide"
 )
+
+require_login()
 
 st.title("📄 Automated Reporting")
+st.write("Generate AI-powered 12-hour drilling reports from Operations Data Center data.")
 
-st.write(
-    "Generate AI-powered drilling reports automatically."
-)
+
+
+def create_pdf_report(report_title, report_text):
+    buffer = BytesIO()
+
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        rightMargin=40,
+        leftMargin=40,
+        topMargin=40,
+        bottomMargin=40
+    )
+
+    styles = getSampleStyleSheet()
+    title_style = styles["Title"]
+    heading_style = styles["Heading2"]
+    normal_style = styles["BodyText"]
+    normal_style.leading = 14
+
+    story = []
+
+    story.append(Paragraph(html.escape(report_title), title_style))
+    story.append(Spacer(1, 12))
+
+    for raw_line in report_text.splitlines():
+        line = raw_line.strip()
+
+        if not line:
+            story.append(Spacer(1, 8))
+            continue
+
+        if line.replace("=", "").strip() == "":
+            story.append(Spacer(1, 10))
+            continue
+
+        safe_line = html.escape(line)
+
+        if line.isupper() and len(line) < 80:
+            story.append(Paragraph(safe_line, heading_style))
+        else:
+            story.append(Paragraph(safe_line, normal_style))
+
+    doc.build(story)
+
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+
+    return pdf_bytes
+
+
+
+# ==================================================
+# LOAD AI 12-HOUR ANALYSIS
+# ==================================================
+
+analysis = build_current_shift_analysis()
+
+if analysis is None:
+    st.warning("Please import a WellData export in Operations Data Center first.")
+    st.stop()
+
+metrics = analysis["metrics"]
+
+
+# ==================================================
+# PROJECT / REPORT INFO
+# ==================================================
+
+operator_name = st.session_state.get("operator_name", "Unknown Operator")
+rig_name = st.session_state.get("rig_name", "Unknown Rig")
+well_name = st.session_state.get("well_name", "Uploaded Well")
+shift_name = st.session_state.get("shift_name", "12-Hour Shift")
+
+report_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+shift_hours = metrics.get("shift_hours", 12)
 
 
 st.subheader("Report Information")
 
-dataset = st.session_state.get("current_dataset")
+col_a, col_b = st.columns(2)
 
-default_well_name = "Uploaded Well"
-default_rig_name = "Rig 101"
+with col_a:
+    operator_name = st.text_input("Operator", value=operator_name)
+    well_name = st.text_input("Well Name", value=well_name)
 
-if dataset is not None:
-    default_well_name = getattr(dataset, "well", "") or getattr(dataset, "file_name", "Uploaded Well")
-
-    default_well_name = (
-        default_well_name
-        .replace("EDR DownLoad.csv", "")
-        .replace("DownLoad.csv", "")
-        .replace(".csv", "")
-        .strip()
-    )
-
-    default_rig_name = getattr(dataset, "rig", "") or "Rig 101"
+with col_b:
+    rig_name = st.text_input("Rig Name", value=rig_name)
+    shift_name = st.text_input("Shift", value=shift_name)
 
 
+# ==================================================
+# EMAIL SCHEDULE & RECIPIENTS
+# ==================================================
 
-report_date = st.date_input(
-    "Report Date"
+st.subheader("Email Schedule & Recipients")
+
+recipient_emails_text = st.text_area(
+    "Recipient Email Addresses",
+    value=st.session_state.get("recipient_emails_text", ""),
+    placeholder="Example: drilling.manager@company.com, mwd.lead@company.com, operations@company.com",
+    height=100
 )
 
-st.subheader("Daily KPI Summary")
-
-col1, col2, col3, col4 = st.columns(4)
-
-#with col1:
-    #rop = st.session_state["rop_df"]["ROP"].mean()
-
-#with col2:
-    #torque = st.session_state["torque_df"]["Torque"].max()
-
-#with col3:
-    #spp = st.session_state["hydraulics_df"]["SPP"].iloc[-1]
-
-#with col4:
-    #ecd = st.session_state["hydraulics_df"]["ECD"].iloc[-1]
-    
-
-st.subheader("Report Statistics")
-
-c1, c2, c3 = st.columns(3)
-
-with c1:
-    st.metric("Footage Drilled", "1,250 ft")
-
-with c2:
-    st.metric("Operating Hours", "24 hrs")
-
-with c3:
-    st.metric("NPT", "0 hrs")
-
-    
-st.subheader("AI Daily Summary")
-
-avg_rop = (
-    st.session_state["rop_df"]["ROP"].mean()
-    if "rop_df" in st.session_state
-    else 0
+report_email_time = st.time_input(
+    "Daily Auto-Email Time",
+    value=st.session_state.get("report_email_time", None)
 )
 
-max_torque = (
-    st.session_state["torque_df"]["Torque"].max()
-    if "torque_df" in st.session_state
-    else 0
-)
+st.session_state["recipient_emails_text"] = recipient_emails_text
+st.session_state["report_email_time"] = report_email_time
 
-current_spp = (
-    st.session_state["hydraulics_df"]["SPP"].iloc[-1]
-    if "hydraulics_df" in st.session_state
-    else 0
-)
+recipient_emails = [
+    email.strip()
+    for email in recipient_emails_text.replace("\n", ",").split(",")
+    if email.strip()
+]
 
-current_ecd = (
-    st.session_state["hydraulics_df"]["ECD"].iloc[-1]
-    if "hydraulics_df" in st.session_state
-    else 0
-)
+st.session_state["recipient_emails"] = recipient_emails
 
-collision_alerts = (
-    (
-        st.session_state["collision_df"]["Distance"] < 25
-    ).sum()
-    if "collision_df" in st.session_state
-    else 0
-)
-
-mwd_health = 100
-
-
-if avg_rop >= 80:
-    rop_comment = "Average ROP remained within target range."
+if recipient_emails:
+    st.success(f"{len(recipient_emails)} recipient email(s) saved for this session.")
 else:
-    rop_comment = "Average ROP fell below target range and requires optimization."
-
-
-if max_torque > 4500:
-    torque_comment = "Torque approached operating limits in the lateral section."
-else:
-    torque_comment = "Torque remained within acceptable operating limits."
-
-
-if current_spp > 4000:
-    spp_comment = "Standpipe pressure increased significantly with depth."
-else:
-    spp_comment = "Standpipe pressure remained stable."
-
-
-if current_ecd < 12.5:
-    hydraulics_comment = "Hydraulic performance remained acceptable."
-else:
-    hydraulics_comment = "ECD exceeded recommended limits and requires attention."
-
-
-if collision_alerts == 0:
-    collision_comment = "No anti-collision risks were identified."
-else:
-    collision_comment = f"{collision_alerts} anti-collision alerts were detected."
+    st.info("Enter one or more recipient emails separated by commas or new lines.")
 
 
 
 
-if "well_name" not in locals():
-    dataset = st.session_state.get("current_dataset")
 
-    if dataset is not None:
-        well_name = getattr(dataset, "well", "") or getattr(dataset, "file_name", "Uploaded Well")
-        well_name = (
-            well_name
-            .replace("EDR DownLoad.csv", "")
-            .replace("DownLoad.csv", "")
-            .replace(".csv", "")
-            .strip()
-        )
-    else:
-        well_name = "Uploaded Well"
+# ==================================================
+# KPI SUMMARY
+# ==================================================
+
+st.subheader("12-Hour KPI Summary")
+
+footage_drilled = metrics.get("footage_drilled", 0)
+avg_rop = metrics.get("avg_rop", 0)
+current_rop = metrics.get("current_rop", 0)
+avg_torque = metrics.get("avg_torque", 0)
+max_torque = metrics.get("max_torque", 0)
+avg_hookload = metrics.get("avg_hookload", 0)
+current_spp = metrics.get("current_spp", 0)
+avg_spp = metrics.get("avg_spp", 0)
+current_ecd = metrics.get("current_ecd", 0)
+avg_ecd = metrics.get("avg_ecd", 0)
+avg_flowrate = metrics.get("avg_flowrate", 0)
+npt_hours = metrics.get("npt_hours", 0)
+
+k1, k2, k3, k4 = st.columns(4)
+
+with k1:
+    st.metric("Footage Drilled", f"{footage_drilled:,.1f} ft")
+
+with k2:
+    st.metric("Average ROP", f"{avg_rop:,.1f} ft/hr")
+
+with k3:
+    st.metric("Estimated NPT", f"{npt_hours:.1f} hrs")
+
+with k4:
+    st.metric("Current SPP", f"{current_spp:,.1f} psi")
 
 
-summary = f"""
+# ==================================================
+# REPORT BUILDER
+# ==================================================
+
+def build_header(report_title):
+    return f"""
+{report_title}
+
+Report Generated: {report_time}
+Time Format: Military Time
+
+Operator: {operator_name}
+Rig: {rig_name}
 Well: {well_name}
+Shift: {shift_name}
+Evaluation Window: Last {shift_hours} hours
 
-Daily Drilling Summary
-
-{rop_comment}
-
-{torque_comment}
-
-{spp_comment}
-
-{hydraulics_comment}
-
-{collision_comment}
-
-Recommended Action:
-
-Monitor torque and drag trends while maintaining current hydraulics program.
+==================================================
 """
+
+
+daily_report = build_header("AI-GENERATED DAILY OPERATIONS REPORT") + f"""
+DAILY DRILLING SUMMARY
+
+Footage Drilled: {footage_drilled:,.1f} ft
+Average ROP: {avg_rop:,.1f} ft/hr
+Current ROP: {current_rop:,.1f} ft/hr
+Estimated NPT: {npt_hours:.1f} hrs
+
+TORQUE / DRAG SUMMARY
+
+Average Torque: {avg_torque:,.1f}
+Maximum Torque: {max_torque:,.1f}
+Average Hook Load: {avg_hookload:,.1f}
+
+HYDRAULICS SUMMARY
+
+Current SPP: {current_spp:,.1f} psi
+Average SPP: {avg_spp:,.1f} psi
+Current ECD: {current_ecd:,.2f} ppg
+Average ECD: {avg_ecd:,.2f} ppg
+Average Flow Rate: {avg_flowrate:,.1f}
+
+AI EVALUATION
+
+The system evaluated the uploaded WellData export from Operations Data Center using the most recent 12-hour operating window.
+
+RECOMMENDATION
+
+Continue monitoring ROP, torque, hook load, standpipe pressure, ECD, flow rate, and inactive drilling periods. Review abnormal torque or pressure trends before issuing the final client report.
+"""
+
+
+failure_report = build_header("AI-GENERATED MWD / MOTOR FAILURE RISK REPORT") + f"""
+MWD / MOTOR RISK SUMMARY
+
+Average ROP: {avg_rop:,.1f} ft/hr
+Current ROP: {current_rop:,.1f} ft/hr
+Average Torque: {avg_torque:,.1f}
+Maximum Torque: {max_torque:,.1f}
+Current SPP: {current_spp:,.1f} psi
+Average Flow Rate: {avg_flowrate:,.1f}
+Estimated NPT: {npt_hours:.1f} hrs
+
+AI EVALUATION
+
+The system reviewed operating indicators that may contribute to MWD, motor, or BHA performance concerns.
+
+Potential risk drivers include:
+1. Torque increase or torque spikes
+2. ROP drop while drilling parameters remain active
+3. Standpipe pressure instability
+4. Flow-rate inconsistency
+5. Extended inactive time during the 12-hour window
+
+RECOMMENDATION
+
+If torque increases while ROP declines, investigate bit condition, motor performance, formation change, hole cleaning, WOB transfer, and possible tool dysfunction. Confirm with directional drilling notes and surface equipment records.
+"""
+
+
+survey_report = build_header("AI-GENERATED SURVEY / DIRECTIONAL READINESS REPORT") + f"""
+SURVEY / DIRECTIONAL SUMMARY
+
+This report checks whether the Operations Data Center has enough information for directional review.
+
+Required for full survey-quality analysis:
+1. Measured Depth
+2. Inclination
+3. Azimuth
+4. TVD
+5. Northing
+6. Easting
+7. Vertical Section
+8. Dogleg Severity
+9. Corrected survey file
+10. Client survey format requirement
+
+AI EVALUATION
+
+If the uploaded WellData export does not include complete survey values, the system should not claim final directional accuracy.
+
+RECOMMENDATION
+
+For TRUEshot reporting, upload or connect the corrected survey package before issuing the final survey report. The system should support both TRUEshot internal survey format and Oxy client format.
+"""
+
+
+eow_report = build_header("AI-GENERATED END-OF-WELL PACKAGE READINESS REPORT") + f"""
+END-OF-WELL PACKAGE CHECKLIST
+
+The following items should be prepared for the final client package:
+
+1. Corrected TRUEshot survey format
+2. Corrected Oxy client survey format
+3. Slide sheet
+4. BHA report
+5. Well plan
+6. IFR
+7. Daily operations reports
+8. MWD failure or tool-performance notes
+9. Motor performance notes
+10. Final drilling performance summary
+
+AI EVALUATION
+
+Current uploaded data supports operational performance review, but final end-of-well delivery requires the full job package folder and corrected survey files.
+
+RECOMMENDATION
+
+Add a future upload section where the user can attach the full end-of-well folder. The AI agent can then check for missing files, summarize the package, and create the final client-ready report.
+"""
+
+
+executive_report = build_header("AI-GENERATED EXECUTIVE SUMMARY") + f"""
+EXECUTIVE SUMMARY
+
+The platform successfully imported operational data through Operations Data Center and evaluated the most recent 12-hour drilling window.
+
+Key Results:
+- Footage Drilled: {footage_drilled:,.1f} ft
+- Average ROP: {avg_rop:,.1f} ft/hr
+- Estimated NPT: {npt_hours:.1f} hrs
+- Average Torque: {avg_torque:,.1f}
+- Current SPP: {current_spp:,.1f} psi
+- Current ECD: {current_ecd:,.2f} ppg
+
+AI VALUE
+
+This workflow shows how TRUEshot can move from manual report preparation toward automated operational intelligence, faster shift review, MWD/motor risk screening, and standardized client reporting.
+
+RECOMMENDATION
+
+Next development step should be adding full report-package upload, survey conversion workflow, and AI copilot querying across WellData, survey, BHA, slide sheet, and end-of-well documents.
+"""
+
+
+# ==================================================
+# DISPLAY REPORT CENTER
+# ==================================================
+
+st.subheader("AI Automated Reporting Center")
+
+report_options = {
+    "Daily Operations Report": daily_report,
+    "MWD / Motor Failure Risk Report": failure_report,
+    "Survey / Directional Readiness Report": survey_report,
+    "End-of-Well Package Readiness Report": eow_report,
+    "Executive Summary": executive_report,
+}
+
+selected_report = st.selectbox(
+    "Select Report Type",
+    list(report_options.keys())
+)
+
+selected_text = report_options[selected_report]
 
 st.text_area(
     "Generated Report",
-    summary,
-    height=350
-)
- 
-st.subheader("AI Automated Reporting Center")
-
-#st.error("AUTOMATED REPORTING")
-
-report_type = st.selectbox(
-    "Select Report",
-    [
-        "MWD Daily Report",
-        "MWD Failure Analysis",
-        "Directional Performance Report",
-        "Executive Summary",
-        "End of Well Report",
-        "Well Completion Package"
-    ]
+    selected_text,
+    height=420
 )
 
-if "mwd_df" not in st.session_state:
-    st.warning("Please upload MWD CSV in Data Manager.")
-    st.stop()
-
-df = st.session_state["mwd_df"]
-
-
-#START INSERT
-
-if report_type == "MWD Daily Report":
-
-    report_text = generate_mwd_daily_report(df)
-
-    st.text_area(
-        "Generated Report",
-        report_text,
-        height=500
-    )
-
-    if st.button("Generate PDF", key="mwd_pdf"):
-
-        pdf_buffer = generate_pdf(
-            "MWD Daily Report",
-            report_text
-        )
-
-        st.download_button(
-            "Download PDF",
-            data=pdf_buffer,
-            file_name="MWD_Daily_Report.pdf",
-            mime="application/pdf",
-            key="download_mwd_pdf"
-        )
-        
-     
-
-#CREATE END OF WELL REPORT
-
-#==========================================================
-# END OF WELL REPORT
-#==========================================================
-
-if report_type == "End of Well Report":
-
-    max_depth = df["Depth"].max()
-
-    avg_rop = df["ROP"].mean()
-    avg_shock = df["Shock"].mean()
-    avg_vibration = df["Vibration"].mean()
-    avg_temp = df["Temp"].mean()
-    avg_battery = df["Battery"].mean()
-    avg_pulse = df["Pulse_Quality"].mean()
-
-    failure_count = df["Failure_Flag"].sum()
-
-    reliability = max(
-        0,
-        100 - failure_count * 2
-    )
-
-    eow_report = f"""
-TrueShot End Of Well Report
-
-======================================
-
-Maximum Depth:
-{max_depth:.0f} ft
-
-Average ROP:
-{avg_rop:.1f} ft/hr
-
-Average Shock:
-{avg_shock:.1f}
-
-Average Vibration:
-{avg_vibration:.1f}
-
-Average Temperature:
-{avg_temp:.1f}
-
-Average Battery:
-{avg_battery:.1f} V
-
-Average Pulse Quality:
-{avg_pulse:.1f}
-
-Failure Events:
-{failure_count}
-
-Reliability Score:
-{reliability:.1f} %
-
-======================================
-
-END OF WELL ASSESSMENT
-
-• Drilling operations completed successfully.
-
-• Tool performance remained stable.
-
-• No critical downhole failures were detected.
-
-• Equipment reliability remained acceptable.
-
-• Routine maintenance is recommended before the next well.
-
-======================================
-
-Generated by
-
-TrueShot AI Drilling Intelligence Suite
-"""
-
-    st.text_area(
-        "End of Well Report",
-        eow_report,
-        height=500
-    )
-
-    if st.button(
-        "Generate End of Well PDF",
-        key="eow_pdf"
-    ):
-
-        pdf_buffer = generate_pdf(
-            "TrueShot End of Well Report",
-            eow_report
-        )
-
-        st.download_button(
-            "Download End of Well PDF",
-            data=pdf_buffer,
-            file_name="End_of_Well_Report.pdf",
-            mime="application/pdf",
-            key="download_eow_pdf"
-        )
-
- #END INSERT FROM MWD
-
-
-# PASTE HERE
-if report_type == "MWD Failure Analysis":
-
-    failure_report = generate_failure_report(df)
-
-    st.text_area(
-        "Failure Analysis",
-        failure_report,
-        height=500
-    )
-
-    if st.button(
-        "Generate Failure PDF",
-        key="failure_pdf"
-    ):
-
-        pdf_buffer = generate_pdf(
-            "TRUEshot MWD Failure Report",
-            failure_report
-        )
-
-        st.download_button(
-            "Download Failure PDF",
-            data=pdf_buffer,
-            file_name="MWD_Failure_Report.pdf",
-            mime="application/pdf",
-            key="download_failure_pdf"
-        )   
-    
-#DIRECTIONAL PERFORMANCE REPORT
-
-if report_type == "Directional Performance Report":
-
-    report_text = generate_directional_report(df)
-
-    st.text_area(
-        "Directional Report",
-        report_text,
-        height=500
-    )
-
-    if st.button(
-        "Generate Directional PDF",
-        key="directional_pdf"
-    ):
-
-        pdf_buffer = generate_pdf(
-            "Directional Performance Report",
-            report_text
-        )
-
-        st.download_button(
-            "Download Directional PDF",
-            data=pdf_buffer,
-            file_name="Directional_Report.pdf",
-            mime="application/pdf",
-            key="download_directional_pdf"
-        )
-            
-# EXECUTIVE SUMMARY
-
-#==========================================================
-# EXECUTIVE SUMMARY
-#==========================================================
-
-if report_type == "Executive Summary":
-
-    max_depth = df["Depth"].max()
-    avg_rop = df["ROP"].mean()
-    avg_shock = df["Shock"].mean()
-    avg_vibration = df["Vibration"].mean()
-    avg_temp = df["Temp"].mean()
-    avg_battery = df["Battery"].mean()
-    avg_pulse = df["Pulse_Quality"].mean()
-
-    failure_count = df["Failure_Flag"].sum()
-
-    health_score = max(
-        0,
-        100 - avg_shock * 0.3 - avg_vibration * 3
-    )
-
-    executive_report = f"""
-TrueShot Executive Summary
-
-================================
-
-Current Depth:
-{max_depth:.0f} ft
-
-Average ROP:
-{avg_rop:.1f} ft/hr
-
-Tool Health:
-{health_score:.1f}%
-
-Failure Events:
-{failure_count}
-
-Average Shock:
-{avg_shock:.1f}
-
-Average Vibration:
-{avg_vibration:.1f}
-
-Average Temperature:
-{avg_temp:.1f}
-
-Average Battery:
-{avg_battery:.1f}
-
-Average Pulse Quality:
-{avg_pulse:.1f}
-
-================================
-
-EXECUTIVE ASSESSMENT
-
-• Overall drilling performance remained stable.
-
-• No critical tool failures detected.
-
-• Continue monitoring vibration trends.
-
-• Preventive maintenance recommended.
-
-================================
-
-Prepared by
-
-TrueShot AI Drilling Intelligence Suite
-"""
-
-    st.text_area(
-        "Executive Summary",
-        executive_report,
-        height=500
-    )
-
-    if st.button(
-        "Generate Executive PDF",
-        key="executive_pdf"
-    ):
-
-        pdf_buffer = generate_pdf(
-            "TRUEshot Executive Summary",
-            executive_report
-        )
-
-        st.download_button(
-            "Download Executive PDF",
-            data=pdf_buffer,
-            file_name="Executive_Summary.pdf",
-            mime="application/pdf",
-            key="download_executive_pdf"
-        )
-
-#==========================================================
-# WELL COMPLETION PACKAGE
-#==========================================================
-
-if report_type == "Well Completion Package":
-
-    final_depth = df["Depth"].max()
-
-    avg_rop = df["ROP"].mean()
-    avg_wob = df["WOB"].mean()
-    avg_rpm = df["RPM"].mean()
-    avg_torque = df["Torque"].mean()
-    avg_mudflow = df["Mud_Flow"].mean()
-
-    avg_shock = df["Shock"].mean()
-    avg_vibration = df["Vibration"].mean()
-    avg_temp = df["Temp"].mean()
-    avg_battery = df["Battery"].mean()
-    avg_pulse = df["Pulse_Quality"].mean()
-
-    failure_count = df["Failure_Flag"].sum()
-
-    completion_score = max(
-        0,
-        100 - failure_count * 2
-    )
-
-    completion_report = f"""
-TrueShot Well Completion Package
-
-====================================================
-
-WELL INFORMATION
-
-Well Name:
-{well_name}
-
-Final Measured Depth:
-{final_depth:.0f} ft
-
-====================================================
-
-DRILLING PERFORMANCE
-
-Average ROP:
-{avg_rop:.1f} ft/hr
-
-Average WOB:
-{avg_wob:.1f}
-
-Average RPM:
-{avg_rpm:.1f}
-
-Average Torque:
-{avg_torque:.1f}
-
-Average Mud Flow:
-{avg_mudflow:.1f}
-
-====================================================
-
-MWD PERFORMANCE
-
-Average Shock:
-{avg_shock:.1f}
-
-Average Vibration:
-{avg_vibration:.1f}
-
-Average Temperature:
-{avg_temp:.1f}
-
-Average Battery:
-{avg_battery:.1f} V
-
-Average Pulse Quality:
-{avg_pulse:.1f}
-
-====================================================
-
-TOOL RELIABILITY
-
-Failure Events:
-{failure_count}
-
-Completion Score:
-{completion_score:.1f} %
-
-====================================================
-
-FINAL ASSESSMENT
-
-• Well successfully drilled to TD.
-
-• MWD tool remained operational.
-
-• Directional objectives achieved.
-
-• Data quality acceptable.
-
-• Ready for handover to Completion Operations.
-
-====================================================
-
-Package Includes
-
-✓ MWD Daily Report
-
-✓ Failure Analysis
-
-✓ Directional Performance Report
-
-✓ Executive Summary
-
-✓ End of Well Report
-
-====================================================
-
-Generated by
-
-TrueShot AI Drilling Intelligence Suite
-"""
-
-    st.text_area(
-        "Well Completion Package",
-        completion_report,
-        height=550
-    )
-
-    if st.button(
-        "Generate Completion PDF",
-        key="completion_pdf"
-    ):
-
-        pdf_buffer = generate_pdf(
-            "TrueShot Well Completion Package",
-            completion_report
-        )
-
-        st.download_button(
-            "Download Completion PDF",
-            data=pdf_buffer,
-            file_name="Well_Completion_Package.pdf",
-            mime="application/pdf",
-            key="download_completion_pdf"
-        )
+pdf_bytes = create_pdf_report(
+    selected_report,
+    selected_text
+)
+
+st.download_button(
+    label="Download Selected Report as PDF",
+    data=pdf_bytes,
+    file_name=f"{selected_report.replace(' ', '_').replace('/', '_')}.pdf",
+    mime="application/pdf"
+)

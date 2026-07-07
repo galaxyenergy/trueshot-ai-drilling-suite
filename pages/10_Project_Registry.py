@@ -1,13 +1,14 @@
 import streamlit as st
-
 from core.session_manager import SessionManager
-
+from utils.auth_guard import require_login
 
 st.set_page_config(
     page_title="Project Registry",
     page_icon="📁",
     layout="wide"
 )
+
+require_login()
 
 context = SessionManager.get_context()
 

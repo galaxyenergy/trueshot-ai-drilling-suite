@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+from utils.auth_guard import require_login
+
 
 st.set_page_config(
     page_title="Anti-Collision Monitoring",
@@ -9,17 +11,31 @@ st.set_page_config(
     layout="wide"
 )
 
+require_login()
+
 st.title("⚠️ Anti-Collision Monitoring")
 
 st.caption(
     "Real-time offset well proximity and collision risk monitoring"
 )
 
-if "collision_df" not in st.session_state:
-    st.warning("Please upload Survey CSV in Data Manager.")
+
+
+
+from utils.datasource import get_module_data
+
+df = get_module_data("anti_collision_df")
+
+if df is None or df.empty:
+    st.warning("Please import a WellData export in Operations Data Center.")
     st.stop()
 
-df = st.session_state["collision_df"]
+st.session_state["anti_collision_df"] = df
+st.session_state["collision_df"] = df
+st.session_state["survey_df"] = df
+
+
+
 
 #st.subheader("Collision Columns")
 #st.write(df.columns.tolist())

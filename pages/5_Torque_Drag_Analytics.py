@@ -3,6 +3,10 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import datetime
+from utils.auth_guard import require_login
+from utils.datasource import get_module_data
+from services.shift_analysis_service import build_current_shift_analysis
+
 
 st.set_page_config(
     page_title="TrueShot AI - Torque & Drag",
@@ -10,242 +14,215 @@ st.set_page_config(
     layout="wide"
 )
 
+require_login()
+
 dataset = st.session_state.get("current_dataset")
 
 
 st.title("🔩 Torque & Drag Analytics")
 
-st.caption(
-    "Real-time torque, hookload and drag monitoring for drilling performance optimization"
-)
+# ==================================================
+# ANTI-COLLISION ANALYSIS FROM OPERATIONS DATA CENTER
+# ==================================================
 
-# --------------------------------------------------
-# SAMPLE DATA
-# --------------------------------------------------
+df = get_module_data("anti_collision_df")
 
-if "torque_df" not in st.session_state:
-    st.warning("Please upload Torque CSV in Data Manager.")
+if df is None or df.empty:
+    st.warning("Please import a WellData export in Operations Data Center.")
     st.stop()
 
-df = st.session_state["torque_df"]
+st.session_state["anti_collision_df"] = df
+st.session_state["collision_df"] = df
+st.session_state["survey_df"] = df
 
-#st.write(df.columns.tolist())
+analysis = build_current_shift_analysis()
 
-depth = np.arange(0, 20001, 100)
+if analysis is None:
+    st.warning("Please import a WellData export in Operations Data Center.")
+    st.stop()
 
-depth = df["Depth"]
-hookload = df["Hookload"]
-torque = df["Torque"]
-#st.write(df.columns.tolist())
+metrics = analysis["metrics"]
+shift_df = analysis["shift_df"].copy()
 
-#hookload = df.iloc[:,1]
-#torque = df.iloc[:,2]
+# Make sure required columns exist
+if "Depth" not in shift_df.columns:
+    st.warning("Depth column is missing from the standardized WellData export.")
+    st.stop()
 
-drag = hookload * 0.08
+if "Distance" not in shift_df.columns:
+    shift_df["Distance"] = 1500
 
-df = pd.DataFrame({
-    "depth": depth,
-    "hookload": hookload,
-    "torque": torque,
-    "drag": drag
-})
+# Prepare chart dataframe
+plot_df = shift_df[["Depth", "Distance"]].copy()
 
-# --------------------------------------------------
-# KPIs
-# --------------------------------------------------
+plot_df["Depth"] = pd.to_numeric(plot_df["Depth"], errors="coerce").fillna(0)
+plot_df["Distance"] = pd.to_numeric(plot_df["Distance"], errors="coerce").fillna(1500)
 
-col1, col2, col3, col4, col5 = st.columns([2,2,2,2,1])
+plot_df = plot_df.sort_values("Depth")
+
+# Detect whether real offset separation data exists
+has_dynamic_offset_data = plot_df["Distance"].nunique() > 1
+
+minimum_distance = plot_df["Distance"].min()
+average_distance = plot_df["Distance"].mean()
+collision_alerts = int((plot_df["Distance"] < 1200).sum())
+critical_alerts = int((plot_df["Distance"] < 800).sum())
+
+# ==================================================
+# KPI CARDS
+# ==================================================
+
+st.subheader("12-Hour Anti-Collision Summary")
+
+col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     st.metric(
-        "Current Hookload",
-        f"{hookload.iloc[-1]:.1f} klbs"
+        "Minimum Separation",
+        f"{minimum_distance:,.1f} ft"
     )
 
 with col2:
     st.metric(
-        "Current Torque",
-        f"{torque.iloc[-1]:,.0f} ft-lbs"
+        "Average Separation",
+        f"{average_distance:,.1f} ft"
     )
 
 with col3:
     st.metric(
-        "Max Torque",
-        f"{torque.max():,.0f} ft-lbs"
+        "Warning Alerts",
+        f"{collision_alerts}"
     )
 
 with col4:
     st.metric(
-        "Drag Index",
-        f"{drag.iloc[-1]:.1f}"
+        "Critical Alerts",
+        f"{critical_alerts}"
     )
 
-with col5:
-    st.metric(
-        "Friction Factor",
-        f"{np.mean(drag)/10:.2f}"
-    )
+# ==================================================
+# CHART
+# ==================================================
 
-# --------------------------------------------------
-# HOOKLOAD
-# --------------------------------------------------
+st.subheader("Separation Distance vs Depth — Last 12 Hours")
 
-st.subheader("Hookload vs Depth")
-
-fig_hook = px.line(
-    df,
-    x="depth",
-    y="hookload",
-    title="Hookload Profile"
+fig_distance = px.line(
+    plot_df,
+    x="Depth",
+    y="Distance",
+    title="Offset Well Separation vs Depth — Last 12 Hours"
 )
 
-hookload_limit = 220
-
-fig_hook.add_hline(
-    y=hookload_limit,
+fig_distance.add_hline(
+    y=1200,
     line_dash="dash",
-    line_color="orange",
-    annotation_text="Hookload Limit"
+    annotation_text="Warning Threshold: 1200 ft"
 )
 
-st.plotly_chart(
-    fig_hook,
-    use_container_width=True
-)
-
-# --------------------------------------------------
-# TORQUE
-# --------------------------------------------------
-
-st.subheader("Torque vs Depth")
-
-fig_torque = px.line(
-    df,
-    x="depth",
-    y="torque",
-    title="Torque Profile"
-)
-
-fig_torque.add_hline(
-    y=4000,
+fig_distance.add_hline(
+    y=800,
     line_dash="dash",
-    line_color="red",
-    annotation_text="Torque Limit",
-    annotation_position="top right"
+    annotation_text="Critical Threshold: 800 ft"
 )
 
+st.plotly_chart(fig_distance, use_container_width=True)
 
-st.plotly_chart(
-    fig_torque,
-    use_container_width=True
-)
+# ==================================================
+# RISK TABLE
+# ==================================================
 
-# --------------------------------------------------
-# DRAG TREND
-# --------------------------------------------------
+risk_df = plot_df.tail(50).copy()
 
-df["drag_avg"] = df["drag"].rolling(10).mean()
+def classify_risk(distance):
+    if distance < 800:
+        return "Critical"
+    elif distance < 1200:
+        return "Warning"
+    return "Low"
 
-st.subheader("Drag Trend")
+risk_df["Risk"] = risk_df["Distance"].apply(classify_risk)
 
-fig_drag = px.line(
-    df,
-    x="depth",
-    y="drag_avg",
-    title="Rolling Average Drag"
-)
-
-drag_limit = 18
-
-fig_drag.add_hline(
-    y=drag_limit,
-    line_dash="dash",
-    line_color="orange",
-    annotation_text="Drag Limit"
-)
-
-st.plotly_chart(
-    fig_drag,
-    width="stretch"
-)
-
-# --------------------------------------------------
-# SECTION PERFORMANCE
-# --------------------------------------------------
-
-bins = [0, 5000, 10000, 15000, 20000]
-
-labels = [
-    "Surface",
-    "Intermediate",
-    "Curve",
-    "Lateral"
-]
-
-df["zone"] = pd.cut(
-    df["depth"],
-    bins=bins,
-    labels=labels
-)
-
-zone_table = (
-    df.groupby("zone")["torque"]
-      .mean()
-      .reset_index()
-)
-
-zone_table.columns = [
-    "Zone",
-    "Average Torque (ft-lbs)"
-]
-
-zone_table["Average Torque (ft-lbs)"] = (
-    zone_table["Average Torque (ft-lbs)"]
-    .round(0)
-    .fillna(0).replace([float("inf"), float("-inf")], 0).astype(int)
-)
-
-if zone_table["Average Torque (ft-lbs)"].max() > 3500: 
-
- st.subheader("Formation Torque Analysis")
+st.subheader("Recent Anti-Collision Risk Table")
 
 st.dataframe(
-    zone_table,
+    risk_df[["Depth", "Distance", "Risk"]],
     use_container_width=True,
     hide_index=True
 )
 
-# --------------------------------------------------
-# AI INSIGHTS
-# --------------------------------------------------
+# ==================================================
+# AI ANTI-COLLISION EVALUATION
+# ==================================================
 
-st.subheader("AI Insights")
+st.subheader("AI Anti-Collision Evaluation")
 
-if torque.max() > 4500:
-    st.error(
-        "🚨 Torque exceeds recommended operating limit in lateral section."
-    )
+if not has_dynamic_offset_data:
+    ai_message = f"""
+The uploaded WellData export was successfully read from Operations Data Center, but no dynamic offset-well separation data was detected.
 
-elif torque.max() > 4000:
-    st.warning(
-        "⚠️ Torque approaching operating limit. Monitor friction and hole cleaning."
-    )
+Current Status:
+Minimum Separation Displayed: {minimum_distance:,.1f} ft
+Warning Alerts: {collision_alerts}
+Critical Alerts: {critical_alerts}
 
+AI Evaluation:
+This page is currently showing a placeholder separation value because the uploaded operational export does not appear to include true offset-well distance, closest approach, or anti-collision separation data.
+
+Important:
+A real anti-collision analysis requires at least:
+1. Active well survey trajectory
+2. Offset well survey trajectory
+3. Northing / Easting / TVD or equivalent positional data
+4. Separation factor or calculated center-to-center distance
+
+Recommendation:
+For the meeting demo, explain that the Operations Data Center can feed the anti-collision module, but true anti-collision validation requires uploading survey and offset-well files. Until those are provided, the system should not claim real collision clearance.
+"""
+elif critical_alerts > 0:
+    ai_message = f"""
+Critical anti-collision risk detected in the evaluated 12-hour window.
+
+Minimum Separation: {minimum_distance:,.1f} ft
+Critical Alerts: {critical_alerts}
+Warning Alerts: {collision_alerts}
+
+AI Evaluation:
+Separation distance dropped below the critical threshold. This requires immediate review before continuing directional drilling operations.
+
+Recommendation:
+Stop and review active well survey, offset well survey, directional plan, uncertainty model, and separation factor. Confirm whether the distance is true center-to-center separation or a calculated projection before making operational decisions.
+"""
+elif collision_alerts > 0:
+    ai_message = f"""
+Anti-collision warning condition detected in the evaluated 12-hour window.
+
+Minimum Separation: {minimum_distance:,.1f} ft
+Warning Alerts: {collision_alerts}
+
+AI Evaluation:
+Separation distance dropped below the warning threshold but did not reach the critical threshold.
+
+Recommendation:
+Review the active well plan, offset well position, latest survey, and projected separation trend. Continue monitoring before drilling ahead.
+"""
 else:
-    st.success(
-        "✅ Torque remains within recommended operating range."
-    )
+    ai_message = f"""
+No anti-collision warning or critical condition was detected in the evaluated 12-hour window.
 
-# Separate insights
-st.warning(
-    "⚠️ Drag trend increasing with depth. Review hole cleaning and friction factors."
+Minimum Separation: {minimum_distance:,.1f} ft
+Average Separation: {average_distance:,.1f} ft
+Warning Alerts: {collision_alerts}
+Critical Alerts: {critical_alerts}
+
+AI Evaluation:
+Available separation values remained above the warning threshold.
+
+Recommendation:
+Continue monitoring separation trend. For final client use, confirm that the distance channel is calculated from valid active-well and offset-well survey data.
+"""
+
+st.text_area(
+    "AI Anti-Collision Recommendation",
+    ai_message,
+    height=320
 )
-
-st.info(
-    "ℹ️ Lateral section exhibits highest mechanical loading."
-)
-
-if drag.iloc[-1] > drag.mean() * 1.2:
-    st.warning(
-        "⚠️ Drag trend increasing. Review wellbore friction conditions."
-    )
