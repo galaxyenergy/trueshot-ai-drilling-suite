@@ -31,3 +31,6 @@ generated_surveys/
 
 .DS_Store
 Thumbs.db
+.streamlit/secrets.toml
+
+app password: ugzy pwqv eyat xceu

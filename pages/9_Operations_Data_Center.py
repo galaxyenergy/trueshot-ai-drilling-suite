@@ -5,6 +5,8 @@ from services.import_service import ImportService
 from core.approved_dataset import ApprovedDataset
 from utils.datasource import normalize_welldata_export
 from utils.auth_guard import require_login
+from services.edr_data_quality_service import clean_edr_dataframe
+
 
 st.set_page_config(
     page_title="Operations Data Center",
@@ -191,7 +193,16 @@ if import_btn:
         with st.spinner("Importing shift export..."):
 
             dataset = ImportService.import_file(uploaded)
+            
+            clean_df, cleaning_summary, cleaning_report = clean_edr_dataframe(
+                dataset.raw_dataframe
+            )
 
+            dataset.raw_dataframe = clean_df
+
+            st.session_state["edr_cleaning_summary"] = cleaning_summary
+            st.session_state["edr_cleaning_report"] = cleaning_report
+            
             st.session_state["current_dataset"] = dataset
             
             # Save project metadata for reports
@@ -282,31 +293,83 @@ if analyze_btn:
 
         st.divider()
 
-        st.subheader("📊 Validation Summary")
 
-        st.json(report)
+
+        st.subheader("📊 EDR Data Cleaning Summary")
+
+        summary = st.session_state.get("edr_cleaning_summary", {})
+
+        c1, c2, c3, c4 = st.columns(4)
+
+        with c1:
+            st.metric("Status", summary.get("status", "UNKNOWN"))
+
+        with c2:
+            st.metric("Rows", f"{summary.get('cleaned_rows', 0):,}")
+
+        with c3:
+            st.metric(
+                "Bad EDR Values Removed",
+                f"{summary.get('total_bad_edr_values_removed', 0):,}"
+            )
+
+        with c4:
+            st.metric(
+                "Bad Columns Removed",
+                summary.get("unnamed_columns_removed", 0)
+                + summary.get("empty_columns_removed", 0)
+            )
+
+        cleaning_report = st.session_state.get("edr_cleaning_report")
+
+        if cleaning_report is not None:
+            st.subheader("Channel Cleaning Report")
+
+            st.dataframe(
+                cleaning_report,
+                width="stretch",
+                hide_index=True
+            )
+
 
         st.divider()
 
 
 
+        st.subheader("🔍 Cleaned Data Preview")
 
-        st.subheader("🔍 Data Preview")
+        standard_df = st.session_state.get("standard_df")
 
-        st.dataframe(
-            dataset.raw_dataframe.head(20),
-            use_container_width=True
-        )
-
-        st.divider()
-
-
-        st.subheader("📋 Available WellData Channels")
-
-        st.write(list(dataset.raw_dataframe.columns))
-
+        if standard_df is not None:
+            st.dataframe(
+                standard_df.head(50),
+                width="stretch"
+            )
 
         st.divider()
+
+
+        st.subheader("📋 Available Cleaned WellData Channels")
+
+        standard_df = st.session_state.get("standard_df")
+
+        if standard_df is not None:
+            channels_df = pd.DataFrame(
+                {
+                    "No": range(1, len(standard_df.columns) + 1),
+                    "Channel": list(standard_df.columns)
+                }
+            )
+
+            st.dataframe(
+                channels_df,
+                width="stretch",
+                hide_index=True
+            )
+
+
+
+
 
 # =====================================================
 # HISTORY

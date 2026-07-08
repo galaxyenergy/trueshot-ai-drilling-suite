@@ -100,7 +100,11 @@ fig_inc = px.line(
     title="Inclination vs Measured Depth"
 )
 
-st.plotly_chart(fig_inc, width="stretch")
+st.plotly_chart(
+    fig_inc,
+    width="stretch",
+    key="directional_inclination_chart"
+)
 
 st.subheader("Azimuth Profile")
 
@@ -111,7 +115,11 @@ fig_azi = px.line(
     title="Azimuth vs Measured Depth"
 )
 
-st.plotly_chart(fig_azi, width="stretch")
+st.plotly_chart(
+    fig_azi,
+    width="stretch",
+    key="directional_azimuth_chart"
+)
 
 st.subheader("Vertical Section")
 
@@ -120,6 +128,12 @@ fig_vs = px.line(
     x="easting",
     y="tvd",
     title="Vertical Section"
+)
+
+st.plotly_chart(
+    fig_vs,
+    width="stretch",
+    key="directional_tvd_chart"
 )
 
 fig_vs.update_yaxes(
@@ -220,11 +234,19 @@ if st.button("Generate TrueShot and Oxy Survey Files"):
 if "generated_survey_df" in st.session_state:
     st.subheader("Survey Data Preview")
 
-if "generated_survey_df" in st.session_state:
-    st.subheader("Survey Data Preview")
+    preview_df = st.session_state["generated_survey_df"].copy()
+
+    # Clean mixed data types before displaying in Streamlit
+    for col in preview_df.columns:
+        preview_df[col] = preview_df[col].apply(
+            lambda x: x.decode("utf-8", errors="ignore") if isinstance(x, bytes) else x
+        )
+
+        if preview_df[col].dtype == "object":
+            preview_df[col] = preview_df[col].astype(str)
 
     st.dataframe(
-        st.session_state["generated_survey_df"],
+        preview_df,
         width="stretch",
         hide_index=True
     )
@@ -236,7 +258,8 @@ if "generated_survey_df" in st.session_state:
             label="Download TRUEshot Survey File",
             data=st.session_state["generated_trueshot_file"],
             file_name="generated_trueshot_survey.xlsm",
-            mime="application/vnd.ms-excel.sheet.macroEnabled.12"
+            mime="application/vnd.ms-excel.sheet.macroEnabled.12",
+            key="download_generated_trueshot_survey"
         )
 
     with col2:
@@ -244,25 +267,6 @@ if "generated_survey_df" in st.session_state:
             label="Download Oxy Survey File",
             data=st.session_state["generated_oxy_file"],
             file_name="generated_oxy_survey.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )        
-       
-    
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.download_button(
-            label="Download TrueShot Survey File",
-            data=st.session_state["generated_trueshot_file"],
-            file_name="generated_trueshot_survey.xlsm",
-            mime="application/vnd.ms-excel.sheet.macroEnabled.12"
-        )
-
-    with col2:
-        st.download_button(
-            label="Download Oxy Survey File",
-            data=st.session_state["generated_oxy_file"],
-            file_name="generated_oxy_survey.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="download_generated_oxy_survey"
         )

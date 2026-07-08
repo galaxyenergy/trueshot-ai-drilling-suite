@@ -2,7 +2,7 @@ import streamlit as st
 
 from login import login_screen
 
-st.success("LOGIN MODULE IMPORTED")
+#st.success("LOGIN MODULE IMPORTED")
 
 st.set_page_config(
     page_title="Galaxy AI Drilling Intelligence Suite Powered by TRUEshot Data",

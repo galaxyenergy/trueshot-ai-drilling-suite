@@ -8,6 +8,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 from utils.auth_guard import require_login
 from services.shift_analysis_service import build_current_shift_analysis
+from services.email_service import send_email_report
 
 
 st.set_page_config(
@@ -379,3 +380,52 @@ st.download_button(
     file_name=f"{selected_report.replace(' ', '_').replace('/', '_')}.pdf",
     mime="application/pdf"
 )
+
+# ==================================================
+# EMAIL TEST CENTER
+# ==================================================
+
+st.divider()
+st.subheader("Email Report Center")
+
+test_recipient_text = st.text_area(
+    "Recipient Email Address",
+    placeholder="Example: yourname@gmail.com",
+    height=80
+)
+
+test_recipients = [
+    email.strip()
+    for email in test_recipient_text.replace("\n", ",").split(",")
+    if email.strip()
+]
+
+if st.button("Send Selected PDF Report by Email"):
+    try:
+        send_email_report(
+            recipients=test_recipients,
+            subject=f"TrueShot AI Report - {selected_report}",
+            body=f"""
+Hello,
+
+Attached is the AI-generated drilling report from the TrueShot AI Drilling Intelligence Platform.
+
+Report Type: {selected_report}
+Operator: {operator_name}
+Rig: {rig_name}
+Well: {well_name}
+Shift: {shift_name}
+Report Generated: {report_time}
+
+Regards,
+TRUEshot AI Drilling Intelligence Platform
+""",
+            attachment_bytes=pdf_bytes,
+            attachment_filename=f"{selected_report.replace(' ', '_').replace('/', '_')}.pdf",
+            attachment_mime="application/pdf"
+        )
+
+        st.success("Selected PDF report emailed successfully.")
+
+    except Exception as e:
+        st.error(f"PDF report email failed: {e}")
