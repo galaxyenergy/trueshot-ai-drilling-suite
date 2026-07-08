@@ -69,7 +69,7 @@ npt_hours = metrics.get("npt_hours", 0)
 
 st.subheader("12-Hour ROP Performance Summary")
 
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5 = st.columns(5)
 
 with col1:
     st.metric(
@@ -94,6 +94,12 @@ with col4:
         "Footage Drilled",
         f"{footage_drilled:,.1f} ft"
     )
+    
+with col5:
+    st.metric(
+        "Current Hole Depth",
+        f"{metrics.get('current_hole_depth', 0):,.1f} ft"
+)    
 
 # ==================================================
 # ROP CHARTS
@@ -211,6 +217,7 @@ Current ROP: {current_rop:,.1f} ft/hr
 Average ROP: {avg_rop:,.1f} ft/hr
 Best ROP: {max_rop:,.1f} ft/hr
 Footage Drilled: {footage_drilled:,.1f} ft
+Current Hole Depth: {current_hole_depth:, 0:,.1f} ft
 
 Recommendation:
 Continue monitoring ROP together with torque, RPM, SPP, ECD, flow rate, and hook load. Maintain current drilling parameters unless torque, hydraulics, or hole-cleaning indicators begin to deteriorate.

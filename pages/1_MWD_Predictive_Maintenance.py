@@ -84,27 +84,32 @@ st.caption(
 
 #probability = model.predict_proba(input_data)[0][1]
 
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5 = st.columns(5)
 
 with col1:
     st.metric(
         "Footage Drilled",
         f"{metrics['footage_drilled']:,.1f} ft"
     )
-
 with col2:
+    st.metric(
+        "Current Hole Depth",
+        f"{metrics.get('current_hole_depth', 0):,.1f} ft"
+    )
+
+with col3:
     st.metric(
         "Average ROP",
         f"{metrics['avg_rop']:,.1f} ft/hr"
     )
 
-with col3:
+with col4:
     st.metric(
         "Average Torque",
         f"{metrics['avg_torque']:,.1f}"
     )
 
-with col4:
+with col5:
     st.metric(
         "Estimated NPT",
         f"{metrics['npt_hours']:.1f} hrs"

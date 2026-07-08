@@ -158,6 +158,7 @@ else:
 st.subheader("12-Hour KPI Summary")
 
 footage_drilled = metrics.get("footage_drilled", 0)
+current_hole_depth = metrics.get("current_hole_depth", 0)
 avg_rop = metrics.get("avg_rop", 0)
 current_rop = metrics.get("current_rop", 0)
 avg_torque = metrics.get("avg_torque", 0)
@@ -170,18 +171,21 @@ avg_ecd = metrics.get("avg_ecd", 0)
 avg_flowrate = metrics.get("avg_flowrate", 0)
 npt_hours = metrics.get("npt_hours", 0)
 
-k1, k2, k3, k4 = st.columns(4)
+k1, k2, k3, k4, k5 = st.columns(5)
 
 with k1:
     st.metric("Footage Drilled", f"{footage_drilled:,.1f} ft")
 
 with k2:
-    st.metric("Average ROP", f"{avg_rop:,.1f} ft/hr")
+    st.metric("Current Hole Depth", f"{current_hole_depth:,.1f} ft")
 
 with k3:
-    st.metric("Estimated NPT", f"{npt_hours:.1f} hrs")
+    st.metric("Average ROP", f"{avg_rop:,.1f} ft/hr")
 
 with k4:
+    st.metric("Estimated NPT", f"{npt_hours:.1f} hrs")
+
+with k5:
     st.metric("Current SPP", f"{current_spp:,.1f} psi")
 
 
@@ -201,7 +205,7 @@ Rig: {rig_name}
 Well: {well_name}
 Shift: {shift_name}
 Evaluation Window: Last {shift_hours} hours
-
+Current Hole Depth at Report Time: {current_hole_depth:,.1f} ft
 ==================================================
 """
 
@@ -210,6 +214,7 @@ daily_report = build_header("AI-GENERATED DAILY OPERATIONS REPORT") + f"""
 DAILY DRILLING SUMMARY
 
 Footage Drilled: {footage_drilled:,.1f} ft
+Current Hole Depth at Report Time: {current_hole_depth:,.1f} ft
 Average ROP: {avg_rop:,.1f} ft/hr
 Current ROP: {current_rop:,.1f} ft/hr
 Estimated NPT: {npt_hours:.1f} hrs

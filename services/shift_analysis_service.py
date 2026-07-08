@@ -39,6 +39,29 @@ def build_current_shift_analysis():
         shift_df = df.tail(720).copy()
 
     depth = clean_number(shift_df["Depth"]) if "Depth" in shift_df.columns else pd.Series([0])
+    
+    # Current hole depth at report time
+    if "HoleDepth" in shift_df.columns:
+        hole_depth = clean_number(shift_df["HoleDepth"])
+    elif "Hole Depth" in shift_df.columns:
+        hole_depth = clean_number(shift_df["Hole Depth"])
+    elif "Depth" in shift_df.columns:
+        hole_depth = clean_number(shift_df["Depth"])
+    else:
+        hole_depth = pd.Series([0])
+
+    valid_hole_depth = hole_depth[hole_depth > 0]
+
+    if len(valid_hole_depth) > 0:
+        current_hole_depth = valid_hole_depth.iloc[-1]
+    else:
+        current_hole_depth = 0
+    
+    
+    
+    
+    
+    
     rop = clean_number(shift_df["ROP"]) if "ROP" in shift_df.columns else pd.Series([0])
     rpm = clean_number(shift_df["RPM"]) if "RPM" in shift_df.columns else pd.Series([0])
     torque = clean_number(shift_df["Torque"]) if "Torque" in shift_df.columns else pd.Series([0])
@@ -60,6 +83,7 @@ def build_current_shift_analysis():
     npt_hours = round(max(0, shift_hours * (1 - activity_ratio)), 1)
 
     metrics = {
+        "current_hole_depth": current_hole_depth,
         "footage_drilled": footage_drilled,
         "shift_hours": shift_hours,
         "npt_hours": npt_hours,
@@ -109,6 +133,8 @@ Shift Duration: {shift_hours} hours
 DAILY DRILLING SUMMARY
 
 Footage drilled in the last 12 hours was {metrics['footage_drilled']:,.1f} ft.
+
+Current Hole Depth {metrics.get('current_hole_depth', 0):,.1f} ft.
 
 Average ROP was {metrics['avg_rop']:,.1f} ft/hr.
 
