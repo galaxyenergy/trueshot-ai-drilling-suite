@@ -7,6 +7,10 @@ from utils.datasource import normalize_welldata_export
 from utils.auth_guard import require_login
 from services.edr_data_quality_service import clean_edr_dataframe
 
+from services.mwd_directional_extractor import (
+    extract_mwd_data,
+    extract_directional_survey_data,
+)
 
 st.set_page_config(
     page_title="Operations Data Center",
@@ -148,8 +152,6 @@ source = st.selectbox(
 
 st.divider()
 
-
-
 # =====================================================
 # IMPORT
 # =====================================================
@@ -221,11 +223,30 @@ if import_btn:
             # Temporary demo bridge: feed existing modules from Operations Data Center
             standard_df = normalize_welldata_export(dataset.raw_dataframe)
             
+            mwd_only_df, mwd_extract_summary = extract_mwd_data(dataset.raw_dataframe)
+            survey_only_df, survey_extract_summary = extract_directional_survey_data(dataset.raw_dataframe)
+
+            st.session_state["mwd_only_df"] = mwd_only_df
+            st.session_state["mwd_extract_summary"] = mwd_extract_summary
+
+            st.session_state["survey_only_df"] = survey_only_df
+            st.session_state["survey_extract_summary"] = survey_extract_summary
+                                                  
             st.session_state["standard_df"] = standard_df
 
             # Existing module keys
             st.session_state["mwd_df"] = standard_df
             st.session_state["survey_df"] = standard_df
+            
+            st.session_state["mwd_df"] = mwd_only_df if not mwd_only_df.empty else standard_df
+
+            if not survey_only_df.empty:
+                st.session_state["survey_df"] = survey_only_df
+                st.session_state["directional_df"] = survey_only_df
+            else:
+                st.session_state["survey_df"] = pd.DataFrame()
+                st.session_state["directional_df"] = pd.DataFrame()
+                                        
             st.session_state["rop_df"] = standard_df
             st.session_state["hydraulics_df"] = standard_df
             st.session_state["torque_df"] = standard_df
@@ -240,13 +261,12 @@ if import_btn:
         st.success("Shift export imported successfully.")
 
 
-
 analyze_btn = st.button(
     "Analyze Imported Data",
     use_container_width=True
 )
 
-    # ======================================================
+# ======================================================
 # ANALYZE IMPORTED DATA
 # ======================================================
 
@@ -268,11 +288,59 @@ if analyze_btn:
 
         #st.success("REPORT LOADED")
 
+st.subheader("MWD and Directional Data Extraction Summary")
+
+mwd_summary = st.session_state.get("mwd_extract_summary", {})
+survey_summary = st.session_state.get("survey_extract_summary", {})
+
+c1, c2 = st.columns(2)
+
+with c1:
+    st.markdown("### MWD Channels")
+    st.write(f"Status: {mwd_summary.get('status', 'UNKNOWN')}")
+    st.write(f"Rows: {mwd_summary.get('rows', 0):,}")
+    st.write(f"Columns: {mwd_summary.get('columns', 0):,}")
+
+    found_channels = mwd_summary.get("found_channels", {})
+
+    if found_channels:
+        st.dataframe(
+            pd.DataFrame(
+                [{"Standard Channel": k, "Source Column": v} for k, v in found_channels.items()]
+            ),
+            width="stretch",
+            hide_index=True
+        )
+
+with c2:
+    st.markdown("### Directional / Survey Data")
+    st.write(f"Status: {survey_summary.get('status', 'UNKNOWN')}")
+    st.write(survey_summary.get("message", ""))
+
+    source_columns = survey_summary.get("source_columns", {})
+
+    if source_columns:
+        st.dataframe(
+            pd.DataFrame(
+                [{"Survey Field": k, "Source Column": v} for k, v in source_columns.items()]
+            ),
+            width="stretch",
+            hide_index=True
+        )
+
+    if survey_summary.get("status") != "PASS":
+        st.warning(
+            survey_summary.get(
+                "recommendation",
+                "Upload a corrected survey file for accurate directional reporting."
+            )
+        )
+
+
+
 # ==================================================
 # SHIFT EXECUTIVE DASHBOARD
-# ==================================================
-
-               
+# ==================================================             
 
         st.divider()
 
@@ -292,7 +360,6 @@ if analyze_btn:
             st.write(f"**Imported:** {dataset.import_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
         st.divider()
-
 
 
         st.subheader("📊 EDR Data Cleaning Summary")
@@ -334,8 +401,6 @@ if analyze_btn:
 
         st.divider()
 
-
-
         st.subheader("🔍 Cleaned Data Preview")
 
         standard_df = st.session_state.get("standard_df")
@@ -366,10 +431,6 @@ if analyze_btn:
                 width="stretch",
                 hide_index=True
             )
-
-
-
-
 
 # =====================================================
 # HISTORY

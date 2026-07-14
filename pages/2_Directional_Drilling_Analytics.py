@@ -6,7 +6,10 @@ from utils.auth_guard import require_login
 from utils.datasource import get_module_data
 from services.shift_analysis_service import build_current_shift_analysis
 from services.survey_export_service import generate_survey_files_from_templates
-
+from services.survey_export_service import (
+    generate_survey_files_from_uploaded_data,
+    read_corrected_survey_upload,
+)
 
 
 st.set_page_config(
@@ -209,13 +212,115 @@ st.divider()
 
 st.subheader("Survey Export Center")
 
+# ==================================================
+# CORRECTED SURVEY FILE UPLOAD
+# ==================================================
+
+st.subheader("Upload Corrected Survey File")
+
+corrected_survey_file = st.file_uploader(
+    "Upload corrected survey file for accurate directional reporting",
+    type=["csv", "xlsx", "xlsm"],
+    key="corrected_survey_file_upload"
+)
+
+if corrected_survey_file is not None:
+    try:
+        corrected_survey_df = read_corrected_survey_upload(corrected_survey_file)
+
+        st.session_state["survey_df"] = corrected_survey_df
+        st.session_state["directional_df"] = corrected_survey_df
+        st.session_state["corrected_survey_df"] = corrected_survey_df
+
+        st.success("Corrected survey file loaded successfully.")
+
+        st.dataframe(
+            corrected_survey_df.head(50),
+            width="stretch",
+            hide_index=True
+        )
+
+    except Exception as e:
+        st.error(f"Corrected survey upload failed: {e}")
+        
+
+
+# ==================================================
+# SURVEY DATA STATUS
+# ==================================================
+
+st.subheader("Survey Data Status")
+
+corrected_survey_df = st.session_state.get("corrected_survey_df")
+survey_df = st.session_state.get("survey_df")
+directional_df = st.session_state.get("directional_df")
+standard_df = st.session_state.get("standard_df")
+
+survey_source = "None"
+survey_status = "MISSING"
+survey_rows = 0
+survey_message = "No valid survey data is available yet."
+
+if corrected_survey_df is not None and not corrected_survey_df.empty:
+    survey_source = "Corrected Survey Upload"
+    survey_status = "PASS"
+    survey_rows = len(corrected_survey_df)
+    survey_message = "Corrected survey file is loaded and will be used for TRUEshot/Oxy survey generation."
+
+elif survey_df is not None and not survey_df.empty:
+    survey_source = "Extracted Survey Data"
+    survey_status = "PASS"
+    survey_rows = len(survey_df)
+    survey_message = "Survey data was extracted from the uploaded Operations Data Center file."
+
+elif directional_df is not None and not directional_df.empty:
+    survey_source = "Directional Data"
+    survey_status = "PASS"
+    survey_rows = len(directional_df)
+    survey_message = "Directional data is available."
+
+elif standard_df is not None and not standard_df.empty:
+    survey_source = "Operations Data Center"
+    survey_status = "SURVEY MISSING"
+    survey_rows = 0
+    survey_message = "Operations data is available, but no valid MD / Inclination / Azimuth survey data was found."
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.metric("Survey Status", survey_status)
+
+with col2:
+    st.metric("Survey Source", survey_source)
+
+with col3:
+    st.metric("Survey Rows", f"{survey_rows:,}")
+
+if survey_status == "PASS":
+    st.success(survey_message)
+else:
+    st.warning(
+        survey_message
+        + " Upload a corrected survey file before generating TrueShot or Oxy survey reports."
+    )
+
+
+
 st.write(
     "Generate TrueShot and Oxy survey files from the uploaded TrueShot survey template."
 )
 
 if st.button("Generate TrueShot and Oxy Survey Files"):
     try:
-        survey_result = generate_survey_files_from_templates()
+        source_df = st.session_state.get("corrected_survey_df")
+
+        if source_df is None or source_df.empty:
+            source_df = st.session_state.get("survey_df")
+
+        if source_df is None or source_df.empty:
+            source_df = st.session_state.get("standard_df")
+
+        survey_result = generate_survey_files_from_uploaded_data(source_df)
 
         survey_df = survey_result["survey_df"]
         trueshot_file = survey_result["trueshot_file"]
@@ -255,7 +360,7 @@ if "generated_survey_df" in st.session_state:
 
     with col1:
         st.download_button(
-            label="Download TRUEshot Survey File",
+            label="Download TrueShot Survey File",
             data=st.session_state["generated_trueshot_file"],
             file_name="generated_trueshot_survey.xlsm",
             mime="application/vnd.ms-excel.sheet.macroEnabled.12",
@@ -270,3 +375,5 @@ if "generated_survey_df" in st.session_state:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             key="download_generated_oxy_survey"
         )
+        
+        

@@ -253,4 +253,31 @@ def generate_survey_files_from_templates():
         "oxy_file": oxy_file,
     }
     
-    
+def read_corrected_survey_upload(uploaded_file):
+    """
+    Reads a corrected survey file uploaded by the user.
+
+    Accepted formats:
+    - .csv
+    - .xlsx
+    - .xlsm
+
+    Required columns:
+    - MD / Measured Depth / Survey Depth
+    - Inc / Inclination
+    - Azi / Azimuth
+    """
+
+    if uploaded_file is None:
+        raise ValueError("No survey file uploaded.")
+
+    file_name = uploaded_file.name.lower()
+
+    if file_name.endswith(".csv"):
+        raw_df = pd.read_csv(uploaded_file)
+    elif file_name.endswith(".xlsx") or file_name.endswith(".xlsm"):
+        raw_df = pd.read_excel(uploaded_file)
+    else:
+        raise ValueError("Unsupported file type. Upload CSV, XLSX, or XLSM survey file.")
+
+    return build_survey_df_from_uploaded_data(raw_df)    
